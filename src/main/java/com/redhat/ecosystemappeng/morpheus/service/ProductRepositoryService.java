@@ -37,6 +37,7 @@ public class ProductRepositoryService {
   private static final String SUBMITTED_COUNT = "submitted_count";
   private static final String SUBMISSION_FAILURES = "submission_failures";
   private static final String METADATA = "metadata";
+  private static final String STATUS = "status";
   
   @Inject
   MongoClient mongoClient;
@@ -64,6 +65,10 @@ public class ProductRepositoryService {
         .append(SUBMITTED_COUNT, product.submittedCount())
         .append(METADATA, metadataWithUser)
         .append(SUBMISSION_FAILURES, product.submissionFailures());
+    
+    if (Objects.nonNull(product.status())) {
+      doc.append(STATUS, product.status());
+    }
 
     getCollection().insertOne(doc);
     LOGGER.debugf("Saved product %s to %s collection", product.id(), COLLECTION);
@@ -85,7 +90,9 @@ public class ProductRepositoryService {
       }
     }
 
-    Map<String, String> metadata = doc.get(METADATA, Map.class);
+    @SuppressWarnings("unchecked")
+    Map<String, String> metadata = (Map<String, String>) doc.get(METADATA, Map.class);
+    String status = doc.getString(STATUS);
 
     return new Product(
         doc.getString(RepositoryConstants.ID_KEY),
@@ -95,7 +102,8 @@ public class ProductRepositoryService {
         doc.getInteger(SUBMITTED_COUNT),
         metadata,
         submissionFailures,
-        doc.getString(COMPLETED_AT)
+        doc.getString(COMPLETED_AT),
+        status
     );
   }
 
@@ -113,7 +121,8 @@ public class ProductRepositoryService {
     Document doc = getCollection().find(Filters.eq(RepositoryConstants.ID_KEY, id)).first();
     if (Objects.isNull(doc)) return null;
     
-    Map<String, String> metadata = doc.get(METADATA, Map.class);
+    @SuppressWarnings("unchecked")
+    Map<String, String> metadata = (Map<String, String>) doc.get(METADATA, Map.class);
     if (Objects.nonNull(metadata)) {
       return metadata.get("user");
     }

@@ -7,6 +7,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
 import java.util.ArrayList;
@@ -24,6 +25,7 @@ public class ReactiveApiService {
     private static final Logger LOG = Logger.getLogger(ReactiveApiService.class);
 
     @Inject
+    @RestClient
     ReactiveApiClient reactiveApiClient;
 
     /**

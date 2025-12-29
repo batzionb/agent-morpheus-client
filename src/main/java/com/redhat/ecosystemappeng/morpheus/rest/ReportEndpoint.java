@@ -121,6 +121,7 @@ public class ReportEndpoint {
     )
     ReportRequest request) {
     try {
+      LOGGER.info("Processing request for Agent Morpheus");
       ReportData res = reportService.process(request);
 
       if (sendToMorpheus) {
