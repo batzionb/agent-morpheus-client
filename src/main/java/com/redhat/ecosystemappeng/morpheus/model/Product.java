@@ -25,9 +25,15 @@ public record Product(
     @Schema(type = SchemaType.ARRAY, implementation = FailedComponent.class, required = true, description = "List of submitted components failed to be processed for scanning")
     List<FailedComponent> submissionFailures,
     @Schema(description = "Timestamp of product scan request completion")
-    String completedAt
+    String completedAt,
+    @Schema(description = "Product processing status")
+    String status
 ) {
     public Product(String id, String name, String version, String submittedAt, int submittedCount, Map<String, String> metadata, List<FailedComponent> submissionFailures) {
-        this(id, name, version, submittedAt, submittedCount, metadata, submissionFailures, null);
+        this(id, name, version, submittedAt, submittedCount, metadata, submissionFailures, null, null);
+    }
+    
+    public Product(String id, String name, String version, String submittedAt, int submittedCount, Map<String, String> metadata, List<FailedComponent> submissionFailures, String completedAt) {
+        this(id, name, version, submittedAt, submittedCount, metadata, submissionFailures, completedAt, null);
     }
 } 
