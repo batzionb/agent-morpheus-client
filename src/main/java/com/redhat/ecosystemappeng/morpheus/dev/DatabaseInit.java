@@ -51,15 +51,15 @@ public class DatabaseInit {
       return;
     }
 
-    // Load products first
-    if (productsCount == 0) {
-      loadProducts();
-    }
+    // // Load products first
+    // if (productsCount == 0) {
+    //   loadProducts();
+    // }
 
-    // Load reports and associate them with products
-    if (reportsCount == 0) {
-      loadReports();
-    }
+    // // Load reports and associate them with products
+    // if (reportsCount == 0) {
+    //   loadReports();
+    // }
   }
 
   private void loadProducts() {

@@ -15,15 +15,16 @@ import type { ProductSummary } from "../generated-client/models/ProductSummary";
 interface ReportDetailsProps {
   product: ProductSummary;
   cveId: string;
+  cardHeight: string;
 }
 
-const ReportDetails: React.FC<ReportDetailsProps> = ({ product, cveId }) => {
+const ReportDetails: React.FC<ReportDetailsProps> = ({ product, cveId, cardHeight }) => {
   const name = product.data?.name || "";
   const repositoriesAnalyzed =
     product.summary?.statusCounts?.["completed"]?.toString() || "0";
 
   return (
-    <Card>
+    <Card style={{ height: cardHeight, overflowY: "auto" }}>
       <CardTitle>
         <Title headingLevel="h4" size="xl">
           Report Details
