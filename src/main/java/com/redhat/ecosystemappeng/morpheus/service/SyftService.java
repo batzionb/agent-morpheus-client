@@ -14,7 +14,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 @ApplicationScoped
-public class GenerateSbomService {
+public class SyftService {
     
     private static final Logger LOGGER = Logger.getLogger(PreProcessingService.class);
     private static final int EXIT_CODE_SUCCESS = 0;
@@ -26,9 +26,9 @@ public class GenerateSbomService {
     @Inject
     ObjectMapper objectMapper;
 
-    public JsonNode generate(String image) throws SyftExecutionException, InterruptedException {
+    public JsonNode generateCycloneDXSbomFromImage(String image) throws SyftExecutionException, InterruptedException {
         try {
-            LOGGER.info("Generating SBOM for image: " + image);
+            LOGGER.info("Generating CycloneDX SBOM for image: " + image);
             String[] command = new String[] {
                 "syft",
                 image,

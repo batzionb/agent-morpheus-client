@@ -33,6 +33,7 @@ import com.redhat.ecosystemappeng.morpheus.model.Justification;
 import com.redhat.ecosystemappeng.morpheus.model.PaginatedResult;
 import com.redhat.ecosystemappeng.morpheus.model.Pagination;
 import com.redhat.ecosystemappeng.morpheus.model.Report;
+import com.redhat.ecosystemappeng.morpheus.model.ReportError;
 import com.redhat.ecosystemappeng.morpheus.model.SortField;
 import com.redhat.ecosystemappeng.morpheus.model.SortType;
 import com.redhat.ecosystemappeng.morpheus.model.VulnResult;
@@ -141,6 +142,17 @@ public class ReportRepositoryService {
       }
     }
 
+    // Extract error information if present
+    ReportError error = null;
+    if (doc.containsKey("error")) {
+      var errorDoc = doc.get("error", Document.class);
+      if (Objects.nonNull(errorDoc)) {
+        error = new ReportError(
+            errorDoc.getString("type"),
+            errorDoc.getString("message"));
+      }
+    }
+
     return new Report(id, scan.getString(RepositoryConstants.ID_SORT),
         scan.getString("started_at"),
         scan.getString("completed_at"),
@@ -150,7 +162,8 @@ public class ReportRepositoryService {
         vulnIds,
         metadata,
         gitRepo,
-        ref);
+        ref,
+        error);
   }
 
   private String getStatus(Document doc, Map<String, String> metadata) {
@@ -254,6 +267,15 @@ public class ReportRepositoryService {
     getCollection().updateOne(Filters.eq(RepositoryConstants.ID_KEY, objId),
         Updates.set("input", inputDoc));
     LOGGER.debugf("Updated input for report %s", id);
+  }
+
+  public void saveFullReport(String id, JsonNode report) throws JsonProcessingException {
+    var objId = new ObjectId(id);
+    var reportDoc = Document.parse(objectMapper.writeValueAsString(report));
+    // Preserve the _id field
+    reportDoc.put(RepositoryConstants.ID_KEY, objId);
+    getCollection().replaceOne(Filters.eq(RepositoryConstants.ID_KEY, objId), reportDoc);
+    LOGGER.debugf("Saved full report document %s to MongoDB", id);
   }
 
   private Report get(ObjectId id) {

@@ -107,7 +107,8 @@ The report page SHALL display an embedded table listing all repository reports (
 
 #### Scenario: Repository reports table displays
 - **WHEN** a user views the report page with a specific CVE ID in the route
-- **THEN** a table displays with columns: Repository, Commit ID, ExploitIQ Status, Completed (displaying dates in the format "DD Month YYYY, HH:MM:SS AM/PM TZ"), and Scan state
+- **THEN** a table displays with columns: Repository, Image Name, Commit ID, ExploitIQ Status, Completed (displaying dates in the format "DD Month YYYY, HH:MM:SS AM/PM TZ"), and Scan state
+- **AND** the Image Name column displays the value from `report.image.name` for each repository report
 - **AND** the table shows only repository reports for the current product and CVE (filtered by both product ID and CVE ID from route parameters)
 - **AND** the table is embedded in the page under the donut charts
 
@@ -119,7 +120,7 @@ The report page SHALL display an embedded table listing all repository reports (
 
 #### Scenario: Repository reports table loading state
 - **WHEN** reports data is being fetched
-- **THEN** the table displays a loading spinner
+- **THEN** the table displays a loading spinner with columns including "Image Name"
 
 #### Scenario: Repository reports table error state
 - **WHEN** reports data fetch fails
@@ -127,7 +128,7 @@ The report page SHALL display an embedded table listing all repository reports (
 
 #### Scenario: Repository reports table empty state
 - **WHEN** no repository reports are found for the product and CVE combination
-- **THEN** the table displays an empty state message
+- **THEN** the table displays an empty state message with column count of 7
 
 ### Requirement: Report Page Layout
 The report page SHALL use PatternFly layout components and follow the standard page structure. The report page SHALL display a breadcrumb navigation and page title at the top of the page.

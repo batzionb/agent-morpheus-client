@@ -617,6 +617,22 @@ public class ReportService {
       }
     }
 
+  /**
+   * Formats a collection of keys for error messages, limiting to a reasonable number.
+   * Shows up to 15 keys and indicates if there are more.
+   */
+  private String formatKeysForError(Collection<String> keys) {
+    if (keys == null || keys.isEmpty()) {
+      return "[]";
+    }
+    int maxKeys = 15;
+    List<String> keyList = keys.stream().sorted().collect(Collectors.toList());
+    if (keyList.size() <= maxKeys) {
+      return keyList.toString();
+    }
+    return keyList.subList(0, maxKeys).toString() + " ... (and " + (keyList.size() - maxKeys) + " more)";
+  }
+
   private String getSourceLocationFromMetadataLabels(Map<String, String> properties) {
     return appConfig.image().source().locationKeys().stream()
         .map(String::trim)
@@ -624,7 +640,8 @@ public class ReportService {
         .filter(Objects::nonNull)
         .findFirst()
         .orElseThrow(() -> new IllegalArgumentException(
-            "SBOM is missing required field. Checked keys: " + appConfig.image().source().locationKeys()));
+            "SBOM is missing required field. Checked keys: " + appConfig.image().source().locationKeys() +
+            ". Existing keys in properties: " + formatKeysForError(properties.keySet())));
   }
 
 
@@ -635,7 +652,8 @@ public class ReportService {
         .filter(Objects::nonNull)
         .findFirst()
         .orElseThrow(() -> new IllegalArgumentException(
-            "SBOM is missing required field. Checked keys: " + appConfig.image().source().commitIdKeys()));
+            "SBOM is missing required field. Checked keys: " + appConfig.image().source().commitIdKeys() +
+            ". Existing keys in properties: " + formatKeysForError(properties.keySet())));
   }
 
   private JsonNode buildSbomInfo(ReportRequest request) {

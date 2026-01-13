@@ -14,7 +14,7 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement
 import org.jboss.logging.Logger;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.redhat.ecosystemappeng.morpheus.service.GenerateSbomService;
+import com.redhat.ecosystemappeng.morpheus.service.SyftService;
 import com.redhat.ecosystemappeng.morpheus.service.SyftExecutionException;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -40,7 +40,7 @@ public class GenerateSbomEndpoint {
     ObjectMapper objectMapper;
 
     @Inject
-    GenerateSbomService generateSbomService;
+    SyftService generateSbomService;
 
     @POST
     @Operation(
@@ -105,7 +105,7 @@ public class GenerateSbomEndpoint {
         }
 
         try {
-            JsonNode sbom = generateSbomService.generate(image);
+            JsonNode sbom = generateSbomService.generateCycloneDXSbomFromImage(image);
             return Response.ok(sbom).build();
         } catch (SyftExecutionException e) {
             LOGGER.errorf("Syft execution failed for image %s: %s", image, e.getMessage());

@@ -35,7 +35,7 @@ public class ComponentProcessingService {
     ReportRepositoryService reportRepositoryService;
 
     @Inject
-    GenerateSbomService generateSbomService;
+    SyftService generateSbomService;
 
     @RestClient
     ComponentSyncerService componentSyncerService;
@@ -79,7 +79,7 @@ public class ComponentProcessingService {
             }
             
             // Generate CycloneDX SBOM using GenerateSbomService
-            JsonNode cycloneDxSbom = generateSbomService.generate(image);
+            JsonNode cycloneDxSbom = generateSbomService.generateCycloneDXSbomFromImage(image);
             LOGGER.infof("Generated CycloneDX SBOM for component: %s", component.name());
 
             // Call component syncer API

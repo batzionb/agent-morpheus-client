@@ -6,6 +6,7 @@ import {
   AlertVariant,
   Label,
   Icon,
+  Popover,
 } from "@patternfly/react-core";
 import {
   Table,
@@ -19,6 +20,8 @@ import {
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
+  ExclamationCircleIcon,
+  PendingIcon,
 } from "@patternfly/react-icons";
 import SkeletonTable from "@patternfly/react-component-groups/dist/dynamic/SkeletonTable";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
@@ -181,9 +184,9 @@ const RepositoryReportsTable: React.FC<RepositoryReportsTableProps> = ({
       case "gitRepo":
         return 0;
       case "completedAt":
-        return 3;
-      case "state":
         return 4;
+      case "state":
+        return 5;
       default:
         return 0;
     }
@@ -210,7 +213,9 @@ const RepositoryReportsTable: React.FC<RepositoryReportsTableProps> = ({
   };
 
   const renderAnalysisState = (report: Report) => {
+    console.log(report.state);
     const state = report.state?.toLowerCase();
+    const errorMessage = (report as any).error?.message;
 
     if (state === "completed") {
       return (
@@ -244,8 +249,31 @@ const RepositoryReportsTable: React.FC<RepositoryReportsTableProps> = ({
       );
     }
 
+    if (state === "failed") {
+      return (
+        <Popover
+          bodyContent={errorMessage}
+          aria-label="Error message"
+          position="right"
+        >
+          <Label
+            variant="outline"
+            color="red"
+            icon={
+              <Icon status="danger">
+                <ExclamationCircleIcon />
+              </Icon>
+            }
+            style={{ cursor: "pointer" }}
+          >
+            {report.state}
+          </Label>
+        </Popover>
+      );
+    }
+
     return (
-      <Label variant="outline" icon={<CheckCircleIcon />}>
+      <Label variant="outline" icon={<PendingIcon />}>
         {report.state}
       </Label>
     );
@@ -293,6 +321,7 @@ const RepositoryReportsTable: React.FC<RepositoryReportsTableProps> = ({
         rowsCount={10}
         columns={[
           "Repository",
+          "Image Name",
           "Commit ID",
           "ExploitIQ Status",
           "Completed",
@@ -303,7 +332,7 @@ const RepositoryReportsTable: React.FC<RepositoryReportsTableProps> = ({
   } else if (!reports || reports.length === 0) {
     content = (
       <TableEmptyState
-        columnCount={6}
+        columnCount={7}
         titleText="No repository reports found"
       />
     );
@@ -324,6 +353,7 @@ const RepositoryReportsTable: React.FC<RepositoryReportsTableProps> = ({
             >
               Repository
             </Th>
+            <Th>Image Name</Th>
             <Th>Commit ID</Th>
             <Th style={{ width: "10%" }}>ExploitIQ Status</Th>
             <Th
@@ -334,7 +364,7 @@ const RepositoryReportsTable: React.FC<RepositoryReportsTableProps> = ({
                   direction: activeSortDirection,
                 },
                 onSort: () => handleSortToggle("completedAt"),
-                columnIndex: 3,
+                columnIndex: 4,
               }}
             >
               Completed
@@ -346,7 +376,7 @@ const RepositoryReportsTable: React.FC<RepositoryReportsTableProps> = ({
                   direction: activeSortDirection,
                 },
                 onSort: () => handleSortToggle("state"),
-                columnIndex: 4,
+                columnIndex: 5,
               }}
             >
               Analysis state
@@ -384,6 +414,9 @@ const RepositoryReportsTable: React.FC<RepositoryReportsTableProps> = ({
                     {report.gitRepo || ""}
                   </span>
                 )}
+              </Td>
+              <Td dataLabel="Image Name" style={getEllipsisStyle(15)}>
+                {(report as any).image?.name || report.imageName || ""}
               </Td>
               <Td dataLabel="Commit ID" style={getEllipsisStyle(15)}>
                 {report.gitRepo && report.ref ? (

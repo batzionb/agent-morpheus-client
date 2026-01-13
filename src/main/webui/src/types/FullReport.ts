@@ -126,5 +126,9 @@ export interface FullReport {
   info?: Record<string, unknown>;
   /** User provided metadata for the report */
   metadata?: Record<string, string>;
+  error?: {
+    type: "string"
+    message: "string"
+  } 
 }
 
