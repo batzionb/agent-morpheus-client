@@ -31,6 +31,7 @@ import com.redhat.ecosystemappeng.morpheus.service.PreProcessingService;
 import com.redhat.ecosystemappeng.morpheus.service.ReportService;
 import com.redhat.ecosystemappeng.morpheus.service.RequestQueueExceededException;
 import com.redhat.ecosystemappeng.morpheus.service.ProductService;
+import com.redhat.ecosystemappeng.morpheus.model.GroupedReportRow;
 import com.redhat.ecosystemappeng.morpheus.model.Report;
 import com.redhat.ecosystemappeng.morpheus.model.ReportRequestId;
 import com.redhat.ecosystemappeng.morpheus.model.ProductSummary;
@@ -313,6 +314,82 @@ public class ReportEndpoint {
               : e.getValue().getFirst()
         ));
     var result = reportService.list(filter, SortField.fromSortBy(sortBy), page, pageSize);
+    return Response.ok(result.results)
+        .header("X-Total-Pages", result.totalPages)
+        .header("X-Total-Elements", result.totalElements)
+        .build();
+  }
+
+  @GET
+  @Path("/grouped")
+  @Operation(
+    summary = "List grouped reports", 
+    description = "Retrieves a paginated list of reports grouped by product_id and CVE ID. Reports with product_id are grouped together with aggregated repositories analyzed count. Reports without product_id are returned as individual entries.")
+  @APIResponses({
+    @APIResponse(
+      responseCode = "200", 
+      description = "Grouped reports retrieved successfully",
+      content = @Content(
+        schema = @Schema(type = SchemaType.ARRAY, implementation = GroupedReportRow.class)
+      )
+    ),
+    @APIResponse(
+      responseCode = "500", 
+      description = "Internal server error"
+    )
+  })
+  public Response listGrouped(
+      @Context UriInfo uriInfo,
+      @Parameter(
+        description = "Sort criteria in format 'field:direction'. Supported fields: productId, cveId, submittedAt, name"
+      )
+      @QueryParam(SORT_BY) @DefaultValue("submittedAt:DESC") List<String> sortBy,
+      @Parameter(
+        description = "Page number (0-based)"
+      )
+      @QueryParam(PAGE) @DefaultValue("0") Integer page,
+      @Parameter(
+        description = "Number of items per page"
+      )
+      @QueryParam(PAGE_SIZE) @DefaultValue("100") Integer pageSize,
+      @Parameter(
+        description = "Filter by report ID (input.scan.id)"
+      )
+      @QueryParam("reportId") String reportId,
+      @Parameter(
+        description = "Filter by vulnerability ID (CVE ID)"
+      )
+      @QueryParam("vulnId") String vulnId,
+      @Parameter(
+        description = "Filter by status. Valid values: completed, sent, failed, queued, expired, pending"
+      )
+      @QueryParam("status") String status,
+      @Parameter(
+        description = "Filter by image name"
+      )
+      @QueryParam("imageName") String imageName,
+      @Parameter(
+        description = "Filter by image tag"
+      )
+      @QueryParam("imageTag") String imageTag,
+      @Parameter(
+        description = "Filter by product ID (metadata.product_id)"
+      )
+      @QueryParam("productId") String productId,
+      @Parameter(
+        description = "Filter by ExploitIQ status. Valid values: TRUE, FALSE, UNKNOWN"
+      )
+      @QueryParam("exploitIqStatus") String exploitIqStatus) {
+
+    var filter = uriInfo.getQueryParameters().entrySet().stream()
+        .filter(e -> !FIXED_QUERY_PARAMS.contains(e.getKey()))
+        .collect(Collectors.toMap(
+            Entry::getKey,
+            e -> e.getValue().size() > 1 
+              ? String.join(",", e.getValue()) 
+              : e.getValue().getFirst()
+        ));
+    var result = reportService.listGrouped(filter, SortField.fromSortBy(sortBy), page, pageSize);
     return Response.ok(result.results)
         .header("X-Total-Pages", result.totalPages)
         .header("X-Total-Elements", result.totalElements)

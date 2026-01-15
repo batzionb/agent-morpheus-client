@@ -2,6 +2,7 @@ package com.redhat.ecosystemappeng.morpheus.service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -25,7 +26,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.Accumulators;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.Sorts;
 import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.Updates;
@@ -38,6 +42,7 @@ import com.redhat.ecosystemappeng.morpheus.model.SortField;
 import com.redhat.ecosystemappeng.morpheus.model.SortType;
 import com.redhat.ecosystemappeng.morpheus.model.VulnResult;
 import com.redhat.ecosystemappeng.morpheus.model.ProductReportsSummary;
+import com.redhat.ecosystemappeng.morpheus.model.GroupedReportRow;
 
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -742,5 +747,237 @@ public class ReportRepositoryService {
         Filters.lte("metadata." + SUBMITTED_AT, endInstant)
     );
     return getCollection().countDocuments(filter);
+  }
+
+  public PaginatedResult<GroupedReportRow> listGrouped(
+      Map<String, String> queryFilter,
+      List<SortField> sortFields,
+      Pagination pagination) {
+    Bson baseFilter = buildQueryFilter(queryFilter);
+    List<GroupedReportRow> result = new ArrayList<>();
+
+    // Pipeline 1: Reports WITH product_id - Group by (productId, cveId)
+    List<Bson> withProductIdPipeline = new ArrayList<>();
+
+    // Match filter
+    withProductIdPipeline.add(Aggregates.match(
+        Filters.and(
+            Filters.exists("metadata.product_id", true),
+            baseFilter)));
+
+    // Unwind CVEs to get one document per CVE
+    withProductIdPipeline.add(Aggregates.unwind("$input.scan.vulns"));
+
+    // Group by (productId, cveId) and aggregate
+    withProductIdPipeline.add(Aggregates.group(
+        new Document("productId", "$metadata.product_id")
+            .append("cveId", "$input.scan.vulns.vuln_id"),
+        Accumulators.sum("total", 1),
+        Accumulators.sum("completed",
+            new Document("$cond", Arrays.asList(
+                new Document("$ne", Arrays.asList("$input.scan.completed_at", null)),
+                1, 0))),
+        Accumulators.min("earliestSubmittedAt", "$metadata.submitted_at")));
+
+    // Add sorting
+    if (sortFields != null && !sortFields.isEmpty()) {
+      List<Bson> sorts = new ArrayList<>();
+      sortFields.forEach(sf -> {
+        String field = sf.field();
+        SortType direction = sf.type();
+
+        if ("submittedAt".equals(field)) {
+          if (direction == SortType.ASC) {
+            sorts.add(Sorts.ascending("earliestSubmittedAt"));
+          } else {
+            sorts.add(Sorts.descending("earliestSubmittedAt"));
+          }
+        } else if ("productId".equals(field)) {
+          if (direction == SortType.ASC) {
+            sorts.add(Sorts.ascending("_id.productId"));
+          } else {
+            sorts.add(Sorts.descending("_id.productId"));
+          }
+        } else if ("cveId".equals(field)) {
+          if (direction == SortType.ASC) {
+            sorts.add(Sorts.ascending("_id.cveId"));
+          } else {
+            sorts.add(Sorts.descending("_id.cveId"));
+          }
+        }
+      });
+      if (!sorts.isEmpty()) {
+        withProductIdPipeline.add(Aggregates.sort(Sorts.orderBy(sorts)));
+      }
+    }
+
+    // Count total groups (for pagination)
+    Document countDoc = getCollection()
+        .aggregate(createCountPipeline(baseFilter, true), Document.class)
+        .first();
+    long totalWithProductId = (countDoc != null) ? countDoc.getInteger("count", 0) : 0;
+
+    // Add pagination
+    withProductIdPipeline.add(Aggregates.skip(pagination.page() * pagination.size()));
+    withProductIdPipeline.add(Aggregates.limit(pagination.size()));
+
+    // Project to final format
+    withProductIdPipeline.add(Aggregates.project(Projections.fields(
+        Projections.computed("productId", "$_id.productId"),
+        Projections.computed("cveId", "$_id.cveId"),
+        Projections.computed("repositoriesAnalyzed",
+            new Document("$concat", Arrays.asList(
+                new Document("$toString", "$completed"),
+                "/",
+                new Document("$toString", "$total"),
+                " analyzed"))),
+        Projections.excludeId())));
+
+    // Execute pipeline 1
+    getCollection().aggregate(withProductIdPipeline, Document.class)
+        .forEach(doc -> {
+          result.add(new GroupedReportRow(
+              doc.getString("productId"),
+              doc.getString("cveId"),
+              doc.getString("repositoriesAnalyzed"),
+              null,
+              null));
+        });
+
+    // Pipeline 2: Reports WITHOUT product_id - Individual rows
+    List<Bson> withoutProductIdPipeline = new ArrayList<>();
+
+    // Match filter
+    withoutProductIdPipeline.add(Aggregates.match(
+        Filters.and(
+            Filters.or(
+                Filters.exists("metadata.product_id", false),
+                Filters.eq("metadata.product_id", null)),
+            baseFilter)));
+
+    // Project to normalize CVE array (handle null/empty CVEs)
+    // Create a field that ensures we always have at least one CVE to unwind
+    Document cveArrayExpr = new Document("$cond", Arrays.asList(
+        new Document("$and", Arrays.asList(
+            new Document("$ne", Arrays.asList("$input.scan.vulns", null)),
+            new Document("$gt", Arrays.asList(
+                new Document("$size", 
+                    new Document("$ifNull", Arrays.asList("$input.scan.vulns", new ArrayList<>()))),
+                0)))),
+        "$input.scan.vulns",
+        Arrays.asList(new Document("vuln_id", "-"))));
+    
+    withoutProductIdPipeline.add(Aggregates.project(Projections.fields(
+        Projections.include("metadata", "input", "error"),
+        Projections.computed("cveToUnwind", cveArrayExpr))));
+    
+    // Unwind CVEs
+    withoutProductIdPipeline.add(Aggregates.unwind("$cveToUnwind"));
+
+    // Add sorting
+    if (sortFields != null && !sortFields.isEmpty()) {
+      List<Bson> sorts = new ArrayList<>();
+      sortFields.forEach(sf -> {
+        String field = sf.field();
+        SortType direction = sf.type();
+
+        if ("submittedAt".equals(field)) {
+          if (direction == SortType.ASC) {
+            sorts.add(Sorts.ascending("metadata.submitted_at"));
+          } else {
+            sorts.add(Sorts.descending("metadata.submitted_at"));
+          }
+        } else if ("name".equals(field)) {
+          if (direction == SortType.ASC) {
+            sorts.add(Sorts.ascending("input.image.name"));
+          } else {
+            sorts.add(Sorts.descending("input.image.name"));
+          }
+        } else if ("cveId".equals(field)) {
+          if (direction == SortType.ASC) {
+            sorts.add(Sorts.ascending("cveToUnwind.vuln_id"));
+          } else {
+            sorts.add(Sorts.descending("cveToUnwind.vuln_id"));
+          }
+        }
+      });
+      if (!sorts.isEmpty()) {
+        withoutProductIdPipeline.add(Aggregates.sort(Sorts.orderBy(sorts)));
+      }
+    }
+
+    // Count total
+    Document countDocWithout = getCollection()
+        .aggregate(createCountPipeline(baseFilter, false), Document.class)
+        .first();
+    long totalWithoutProductId = (countDocWithout != null) ? countDocWithout.getInteger("count", 0) : 0;
+
+    // Add pagination
+    withoutProductIdPipeline.add(Aggregates.skip(pagination.page() * pagination.size()));
+    withoutProductIdPipeline.add(Aggregates.limit(pagination.size()));
+
+    // Project to final format
+    withoutProductIdPipeline.add(Aggregates.project(Projections.fields(
+        Projections.computed("productId", (String) null),
+        Projections.computed("cveId",
+            new Document("$ifNull", Arrays.asList(
+                "$cveToUnwind.vuln_id",
+                "-"))),
+        Projections.computed("name", "$input.image.name"),
+        Projections.computed("state",
+            new Document("$cond", Arrays.asList(
+                new Document("$ne", Arrays.asList("$input.scan.completed_at", null)),
+                "completed",
+                new Document("$cond", Arrays.asList(
+                    new Document("$ne", Arrays.asList("$error", null)),
+                    "failed",
+                    "pending"))))),
+        Projections.excludeId())));
+
+    // Execute pipeline 2
+    getCollection().aggregate(withoutProductIdPipeline, Document.class)
+        .forEach(doc -> {
+          result.add(new GroupedReportRow(
+              null,
+              doc.getString("cveId"),
+              null,
+              doc.getString("name"),
+              doc.getString("state")));
+        });
+
+    // Calculate totals
+    long totalElements = totalWithProductId + totalWithoutProductId;
+    int totalPages = (int) Math.ceil((double) totalElements / pagination.size());
+
+    return new PaginatedResult<>(totalElements, totalPages, result.stream());
+  }
+
+  // Helper method to create count pipeline
+  private List<Bson> createCountPipeline(Bson baseFilter, boolean withProductId) {
+    List<Bson> pipeline = new ArrayList<>();
+
+    if (withProductId) {
+      pipeline.add(Aggregates.match(
+          Filters.and(
+              Filters.exists("metadata.product_id", true),
+              baseFilter)));
+      pipeline.add(Aggregates.unwind("$input.scan.vulns"));
+      pipeline.add(Aggregates.group(
+          new Document("productId", "$metadata.product_id")
+              .append("cveId", "$input.scan.vulns.vuln_id")));
+    } else {
+      pipeline.add(Aggregates.match(
+          Filters.and(
+              Filters.or(
+                  Filters.exists("metadata.product_id", false),
+                  Filters.eq("metadata.product_id", null)),
+              baseFilter)));
+      pipeline.add(Aggregates.unwind("$input.scan.vulns"));
+    }
+
+    // Count groups
+    pipeline.add(Aggregates.count("count"));
+
+    return pipeline;
   }
 }

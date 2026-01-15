@@ -30,6 +30,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.redhat.ecosystemappeng.morpheus.client.GitHubService;
 import com.redhat.ecosystemappeng.morpheus.config.AppConfig;
+import com.redhat.ecosystemappeng.morpheus.model.GroupedReportRow;
 import com.redhat.ecosystemappeng.morpheus.model.PaginatedResult;
 import com.redhat.ecosystemappeng.morpheus.model.Pagination;
 import com.redhat.ecosystemappeng.morpheus.model.Report;
@@ -139,6 +140,11 @@ public class ReportService {
   public PaginatedResult<Report> list(Map<String, String> filter, List<SortField> sortBy, Integer page,
       Integer pageSize) {
     return repository.list(filter, sortBy, new Pagination(page, pageSize));
+  }
+
+  public PaginatedResult<GroupedReportRow> listGrouped(Map<String, String> filter, List<SortField> sortBy, Integer page,
+      Integer pageSize) {
+    return repository.listGrouped(filter, sortBy, new Pagination(page, pageSize));
   }
 
   public List<ProductSummary> listProductSummaries() {
