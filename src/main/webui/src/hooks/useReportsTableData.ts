@@ -3,26 +3,20 @@ import { usePaginatedApi } from "./usePaginatedApi";
 import { GroupedReportRow } from "../generated-client";
 import { ReportsToolbarFilters } from "../components/ReportsToolbar";
 
-export type ProductStatus = {
-  vulnerableCount: number;
-  notVulnerableCount: number;
-  uncertainCount: number;
-};
+// ProductStatus type removed - using cveStatusCounts directly from GroupedReportRow
 
 export interface ReportRow {
   reportId: string;
-  sbomName: string;
+  reportType: string;
   cveId: string;
   repositoriesAnalyzed: string;
-  exploitIqStatus: string;
-  exploitIqLabel: string;
+  cveStatusCounts?: Record<string, number>;
   completedAt: string;
-  analysisState: string;
-  productStatus: ProductStatus;
+  mongoId?: string;
 }
 
 export type SortDirection = "asc" | "desc";
-export type SortColumn = "reportId" | "sbomName" | "completedAt" | "submittedAt";
+export type SortColumn = "reportId" | "completedAt" | "submittedAt";
 
 export interface UseReportsTableOptions {
   searchValue: string;
@@ -49,9 +43,10 @@ export interface UseReportsTableResult {
 
 /**
  * Pure function to check if analysis is completed
+ * Uses completedAt field from GroupedReportRow
  */
-export function isAnalysisCompleted(analysisState: string): boolean {
-  return analysisState === "completed";
+export function isAnalysisCompleted(completedAt: string): boolean {
+  return completedAt !== null && completedAt !== undefined && completedAt !== "";
 }
 
 /**
@@ -64,36 +59,35 @@ export type StatusItem = {
 };
 
 /**
- * Pure function to get status items with their colors
+ * Pure function to get status items with their colors from cveStatusCounts
  * Returns an array of status items, each with its own color
- * Always shows all three statuses (vulnerable, not vulnerable, uncertain) if their count > 0
+ * cveStatusCounts is a direct map from status to count (since each row is for one CVE)
  */
-export function getStatusItems(productStatus: ProductStatus): StatusItem[] {
+export function getStatusItems(
+  cveStatusCounts: Record<string, number> | undefined
+): StatusItem[] {
   const items: StatusItem[] = [];
 
-  if (productStatus.vulnerableCount > 0) {
-    items.push({
-      count: productStatus.vulnerableCount,
-      label: "Vulnerable",
-      color: "red",
-    });
+  if (!cveStatusCounts) {
+    return items;
   }
 
-  if (productStatus.notVulnerableCount > 0) {
-    items.push({
-      count: productStatus.notVulnerableCount,
-      label: "Not Vulnerable",
-      color: "green",
-    });
-  }
+  // Map API status values to display labels and colors
+  const statusMap: Record<string, { label: string; color: "red" | "green" | "orange" }> = {
+    TRUE: { label: "Vulnerable", color: "red" },
+    FALSE: { label: "Not Vulnerable", color: "green" },
+    UNKNOWN: { label: "Uncertain", color: "orange" },
+  };
 
-  if (productStatus.uncertainCount > 0) {
-    items.push({
-      count: productStatus.uncertainCount,
-      label: "Uncertain",
-      color: "orange",
-    });
-  }
+  Object.entries(cveStatusCounts).forEach(([status, count]) => {
+    if (count > 0 && statusMap[status]) {
+      items.push({
+        count,
+        label: statusMap[status].label,
+        color: statusMap[status].color,
+      });
+    }
+  });
 
   return items;
 }
@@ -101,42 +95,20 @@ export function getStatusItems(productStatus: ProductStatus): StatusItem[] {
 
 /**
  * Pure function to transform grouped report rows into report rows
- * Converts GroupedReportRow (from API) to ReportRow (for table display)
+ * Maps GroupedReportRow fields directly to ReportRow (columns map directly to API fields)
  */
 export function transformGroupedRowsToReportRows(
   groupedRows: GroupedReportRow[]
 ): ReportRow[] {
   return groupedRows.map((groupedRow) => {
-    // Use productId as reportId/sbomName when available, otherwise use name
-    const reportId = groupedRow.productId || groupedRow.name || "-";
-    const sbomName = groupedRow.productId || groupedRow.name || "-";
-    
-    // Use repositoriesAnalyzed from API if available, otherwise empty
-    const repositoriesAnalyzed = groupedRow.repositoriesAnalyzed || "-";
-    
-    // For reports without product_id, use state from API
-    // For reports with product_id, we don't have state in GroupedReportRow
-    // We'll need to determine this from other data or set a default
-    const analysisState = groupedRow.state || "unknown";
-    
-    // Default productStatus (status counts not available in GroupedReportRow)
-    // TODO: Enhance API to include status counts in GroupedReportRow
-    const productStatus: ProductStatus = {
-      vulnerableCount: 0,
-      notVulnerableCount: 0,
-      uncertainCount: 0,
-    };
-
     return {
-      reportId,
-      sbomName,
+      reportId: groupedRow.reportId || "-",
+      reportType: groupedRow.reportType || "component",
       cveId: groupedRow.cveId || "-",
-      repositoriesAnalyzed,
-      exploitIqStatus: "unknown", // Not available in GroupedReportRow
-      exploitIqLabel: "uncertain", // Not available in GroupedReportRow
-      completedAt: "", // Not available in GroupedReportRow
-      analysisState,
-      productStatus,
+      repositoriesAnalyzed: groupedRow.repositoriesAnalyzed || "-",
+      cveStatusCounts: groupedRow.cveStatusCounts,
+      completedAt: groupedRow.completedAt || "",
+      mongoId: groupedRow.mongoId,
     };
   });
 }
@@ -169,7 +141,6 @@ export function buildSortByParam(
   // Map frontend sort columns to API sort fields
   const sortFieldMap: Record<SortColumn, string> = {
     reportId: "productId",
-    sbomName: "productId",
     completedAt: "submittedAt",
     submittedAt: "submittedAt",
   };

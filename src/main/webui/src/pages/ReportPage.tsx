@@ -24,9 +24,9 @@ import ReportPageSkeleton from "../components/ReportPageSkeleton";
 import { getErrorMessage } from "../utils/errorHandling";
 
 const ReportPage: React.FC = () => {
-  const { productId, cveId } = useParams<{ productId: string; cveId: string }>();
+  const { cveId, reportId } = useParams<{ cveId: string; reportId: string }>();
 
-  const { data, loading, error } = useReport(productId || "");
+  const { data, loading, error } = useReport(reportId || "");
 
   if (loading) {
     return <ReportPageSkeleton />;
@@ -42,7 +42,7 @@ const ReportPage: React.FC = () => {
     );
   }
 
-  if (!data || !productId || !cveId) {
+  if (!data || !reportId || !cveId) {
     return (
       <PageSection>
         <Alert variant={AlertVariant.warning} title="Invalid report">
@@ -152,7 +152,7 @@ const ReportPage: React.FC = () => {
         </Grid>
       </PageSection>
       <PageSection>
-        <RepositoryReportsTable productId={productId} cveId={cveId} productSummary={data} />
+        <RepositoryReportsTable productId={reportId} cveId={cveId} productSummary={data} />
       </PageSection>
     </>
   );

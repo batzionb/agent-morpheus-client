@@ -768,7 +768,24 @@ public class ReportRepositoryService {
     // Unwind CVEs to get one document per CVE
     withProductIdPipeline.add(Aggregates.unwind("$input.scan.vulns"));
 
+    // Unwind output to get justification.status for each CVE
+    // First, ensure output exists and is an array, then filter to match CVE
+    withProductIdPipeline.add(new Document("$addFields",
+        new Document("outputArray",
+            new Document("$ifNull", Arrays.asList("$output", new ArrayList<>())))));
+    withProductIdPipeline.add(new Document("$addFields",
+        new Document("matchedOutput",
+            new Document("$filter", new Document("input", "$outputArray")
+                .append("as", "out")
+                .append("cond", new Document("$eq", Arrays.asList(
+                    "$$out.vuln_id",
+                    "$input.scan.vulns.vuln_id")))))));
+    withProductIdPipeline.add(new Document("$unwind",
+        new Document("path", "$matchedOutput")
+            .append("preserveNullAndEmptyArrays", true)));
+
     // Group by (productId, cveId) and aggregate
+    // Collect all statuses for aggregation, and get report IDs
     withProductIdPipeline.add(Aggregates.group(
         new Document("productId", "$metadata.product_id")
             .append("cveId", "$input.scan.vulns.vuln_id"),
@@ -777,7 +794,14 @@ public class ReportRepositoryService {
             new Document("$cond", Arrays.asList(
                 new Document("$ne", Arrays.asList("$input.scan.completed_at", null)),
                 1, 0))),
-        Accumulators.min("earliestSubmittedAt", "$metadata.submitted_at")));
+        Accumulators.min("earliestSubmittedAt", "$metadata.submitted_at"),
+        Accumulators.min("earliestCompletedAt", "$input.scan.completed_at"),
+        Accumulators.first("firstReportId", "$input.scan.id"),
+        Accumulators.first("firstMongoId", "$_id"),
+        Accumulators.push("statuses",
+            new Document("$ifNull", Arrays.asList(
+                "$matchedOutput.justification.status",
+                null)))));
 
     // Add sorting
     if (sortFields != null && !sortFields.isEmpty()) {
@@ -823,7 +847,8 @@ public class ReportRepositoryService {
 
     // Project to final format
     withProductIdPipeline.add(Aggregates.project(Projections.fields(
-        Projections.computed("productId", "$_id.productId"),
+        Projections.computed("reportId", "$_id.productId"),
+        Projections.computed("reportType", "product"),
         Projections.computed("cveId", "$_id.cveId"),
         Projections.computed("repositoriesAnalyzed",
             new Document("$concat", Arrays.asList(
@@ -831,17 +856,41 @@ public class ReportRepositoryService {
                 "/",
                 new Document("$toString", "$total"),
                 " analyzed"))),
+        Projections.computed("statuses", "$statuses"),
+        Projections.computed("completedAt", "$earliestCompletedAt"),
+        Projections.computed("mongoId",
+            new Document("$toString", "$firstMongoId")),
         Projections.excludeId())));
 
-    // Execute pipeline 1
+    // Execute pipeline 1 and process cveStatusCounts
     getCollection().aggregate(withProductIdPipeline, Document.class)
         .forEach(doc -> {
+          String cveId = doc.getString("cveId");
+          List<?> statuses = doc.getList("statuses", Object.class);
+          
+          // Build cveStatusCounts map (direct status -> count, since each row is for one CVE)
+          Map<String, Integer> cveStatusCounts = new HashMap<>();
+          
+          if (statuses != null) {
+            for (Object statusObj : statuses) {
+              if (statusObj != null) {
+                String status = statusObj.toString();
+                cveStatusCounts.merge(status, 1, Integer::sum);
+              }
+            }
+          }
+          
+          String completedAt = doc.getString("completedAt");
+          String mongoId = doc.getString("mongoId");
+          
           result.add(new GroupedReportRow(
-              doc.getString("productId"),
-              doc.getString("cveId"),
+              doc.getString("reportId"),
+              doc.getString("reportType"),
+              cveId,
               doc.getString("repositoriesAnalyzed"),
-              null,
-              null));
+              cveStatusCounts,
+              completedAt != null ? completedAt : "",
+              mongoId != null ? mongoId : ""));
         });
 
     // Pipeline 2: Reports WITHOUT product_id - Individual rows
@@ -916,33 +965,62 @@ public class ReportRepositoryService {
     withoutProductIdPipeline.add(Aggregates.skip(pagination.page() * pagination.size()));
     withoutProductIdPipeline.add(Aggregates.limit(pagination.size()));
 
+    // Unwind output to get justification.status for the CVE
+    withoutProductIdPipeline.add(new Document("$addFields",
+        new Document("outputArray",
+            new Document("$ifNull", Arrays.asList("$output", new ArrayList<>())))));
+    withoutProductIdPipeline.add(new Document("$addFields",
+        new Document("matchedOutput",
+            new Document("$filter", new Document("input", "$outputArray")
+                .append("as", "out")
+                .append("cond", new Document("$eq", Arrays.asList(
+                    "$$out.vuln_id",
+                    "$cveToUnwind.vuln_id")))))));
+    withoutProductIdPipeline.add(new Document("$addFields",
+        new Document("firstMatchedOutput",
+            new Document("$arrayElemAt", Arrays.asList("$matchedOutput", 0)))));
+
     // Project to final format
     withoutProductIdPipeline.add(Aggregates.project(Projections.fields(
-        Projections.computed("productId", (String) null),
+        Projections.computed("reportId", "$input.scan.id"),
+        Projections.computed("reportType", "component"),
         Projections.computed("cveId",
             new Document("$ifNull", Arrays.asList(
                 "$cveToUnwind.vuln_id",
                 "-"))),
-        Projections.computed("name", "$input.image.name"),
-        Projections.computed("state",
-            new Document("$cond", Arrays.asList(
-                new Document("$ne", Arrays.asList("$input.scan.completed_at", null)),
-                "completed",
-                new Document("$cond", Arrays.asList(
-                    new Document("$ne", Arrays.asList("$error", null)),
-                    "failed",
-                    "pending"))))),
+        Projections.computed("repositoriesAnalyzed", "1"),
+        Projections.computed("justificationStatus",
+            new Document("$ifNull", Arrays.asList(
+                "$firstMatchedOutput.justification.status",
+                null))),
+        Projections.computed("completedAt", "$input.scan.completed_at"),
+        Projections.computed("mongoId",
+            new Document("$toString", "$_id")),
         Projections.excludeId())));
 
     // Execute pipeline 2
     getCollection().aggregate(withoutProductIdPipeline, Document.class)
         .forEach(doc -> {
+          String cveId = doc.getString("cveId");
+          String justificationStatus = doc.getString("justificationStatus");
+          
+          // Build cveStatusCounts map for single report (direct status -> count)
+          Map<String, Integer> cveStatusCounts = new HashMap<>();
+          if (justificationStatus != null && !justificationStatus.isEmpty()) {
+            cveStatusCounts.put(justificationStatus, 1);
+          }
+          
+          String completedAt = doc.getString("completedAt");
+          String mongoId = doc.getString("mongoId");
+          
           result.add(new GroupedReportRow(
-              null,
-              doc.getString("cveId"),
-              null,
-              doc.getString("name"),
-              doc.getString("state")));
+              doc.getString("reportId"),
+              doc.getString("reportType"),
+              cveId,
+              doc.getString("repositoriesAnalyzed"),
+              cveStatusCounts,
+              completedAt != null ? completedAt : "",
+              mongoId != null ? mongoId : ""));
         });
 
     // Calculate totals

@@ -79,7 +79,6 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
 
   const columnNames = {
     reportId: "Report ID",
-    sbomName: "SBOM name",
     cveId: "CVE ID",
     repositoriesAnalyzed: "Repositories Analyzed",
     exploitIqStatus: "ExploitIQ Status",
@@ -101,10 +100,8 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
     switch (column) {
       case "reportId":
         return 0;
-      case "sbomName":
-        return 1;
       case "completedAt":
-        return 5;
+        return 4;
       default:
         return 0;
     }
@@ -129,7 +126,6 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
         rowsCount={10}
         columns={[
           "Report ID",
-          "SBOM name",
           "CVE ID",
           "Repositories Analyzed",
           "ExploitIQ Status",
@@ -176,7 +172,7 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
             ],
           }}
         />
-        <TableEmptyState columnCount={6} titleText="No reports found" />
+        <TableEmptyState columnCount={5} titleText="No reports found" />
       </>
     );
   }
@@ -220,21 +216,9 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
               >
                 {columnNames.reportId}
               </Th>
-              <Th
-                sort={{
-                  sortBy: {
-                    index: activeSortIndex,
-                    direction: activeSortDirection,
-                  },
-                  onSort: () => handleSortToggle("sbomName"),
-                  columnIndex: 1,
-                }}
-              >
-                {columnNames.sbomName}
-              </Th>
               <Th>{columnNames.cveId}</Th>
               <Th>{columnNames.repositoriesAnalyzed}</Th>
-              <Th>
+              <Th style={{ width: "25%" }}>
                 <Flex
                   gap={{ default: "gapSm" }}
                   alignItems={{ default: "alignItemsCenter" }}
@@ -276,7 +260,7 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
                     direction: activeSortDirection,
                   },
                   onSort: () => handleSortToggle("completedAt"),
-                  columnIndex: 5,
+                  columnIndex: 4,
                 }}
               >
                 {columnNames.completedAt}
@@ -286,11 +270,16 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
           <Tbody>
             {rows.length === 0 ? (
               <Tr>
-                <Td colSpan={6}>No reports found</Td>
+                <Td colSpan={5}>No reports found</Td>
               </Tr>
             ) : (
               rows.map((row, index) => {
-                const isCompleted = isAnalysisCompleted(row.analysisState);
+                const isCompleted = isAnalysisCompleted(row.completedAt);
+                // Determine navigation path based on reportType
+                const navigationPath = row.reportType === "product"
+                  ? `/Reports/product/${row.cveId}/${row.reportId}`
+                  : `/Reports/component/${row.cveId}/${row.mongoId || row.reportId}`;
+                
                 return (
                   <Tr key={`${row.reportId}-${row.cveId}-${index}`}>
                     <Td
@@ -303,7 +292,7 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
                       }}
                     >
                       <Link
-                        to={`/Reports/${row.reportId}/${row.cveId}`}
+                        to={navigationPath}
                         style={{
                           display: "block",
                           overflow: "hidden",
@@ -314,7 +303,6 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
                         {row.reportId}
                       </Link>
                     </Td>
-                    <Td dataLabel={columnNames.sbomName}>{row.sbomName}</Td>
                     <Td dataLabel={columnNames.cveId}>{row.cveId}</Td>
                     <Td dataLabel={columnNames.repositoriesAnalyzed}>
                       {row.repositoriesAnalyzed}
@@ -322,9 +310,7 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
                     <Td dataLabel={columnNames.exploitIqStatus}>
                       {isCompleted
                         ? (() => {
-                            const statusItems = getStatusItems(
-                              row.productStatus
-                            );
+                            const statusItems = getStatusItems(row.cveStatusCounts);
                             return statusItems.length > 0 ? (
                               <Flex gap={{ default: "gapSm" }}>
                                 {statusItems.map((item, index) => (

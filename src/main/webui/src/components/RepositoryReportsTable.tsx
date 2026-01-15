@@ -355,9 +355,9 @@ const RepositoryReportsTable: React.FC<RepositoryReportsTableProps> = ({
             </Th>
             <Th>Image Name</Th>
             <Th>Commit ID</Th>
-            <Th style={{ width: "10%" }}>ExploitIQ Status</Th>
+            <Th style={{ width: "25%" }}>ExploitIQ Status</Th>
             <Th
-              style={{ width: "22%", paddingLeft: "0.5rem" }}
+              style={{ width: "15%", paddingLeft: "0.5rem" }}
               sort={{
                 sortBy: {
                   index: activeSortIndex,
@@ -366,6 +366,7 @@ const RepositoryReportsTable: React.FC<RepositoryReportsTableProps> = ({
                 onSort: () => handleSortToggle("completedAt"),
                 columnIndex: 4,
               }}
+              
             >
               Completed
             </Th>
@@ -468,9 +469,9 @@ const RepositoryReportsTable: React.FC<RepositoryReportsTableProps> = ({
                 <TableText>
                   <Button
                     variant="primary"
-                    onClick={() =>
-                      navigate(`/Reports/${productId}/${cveId}/${report.id}`)
-                    }
+                    onClick={() => {
+                      navigate(`/Reports/component/${cveId}/${report.id}`)
+                    }}
                   >
                     View
                   </Button>

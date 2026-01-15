@@ -7,24 +7,32 @@
  */
 export type GroupedReportRow = {
     /**
-     * Product ID if report has product_id, null otherwise
+     * Report ID: product_id if product, actual report ID (input.scan.id) if component
      */
-    productId?: string;
+    reportId?: string;
+    /**
+     * Report type: 'product' or 'component'
+     */
+    reportType: string;
     /**
      * CVE ID
      */
     cveId: string;
     /**
-     * Repositories analyzed (completed/total) - only for reports with product_id
+     * Repositories analyzed: 'completed/total' for products, '1' for components
      */
     repositoriesAnalyzed?: string;
     /**
-     * Image name (only for reports without product_id)
+     * ExploitIQ status counts: Map<Status, Count> - aggregated for products, single report for components
      */
-    name?: string;
+    cveStatusCounts?: Record<string, number>;
     /**
-     * Report state (only for reports without product_id)
+     * Completion timestamp
      */
-    state?: string;
+    completedAt?: string;
+    /**
+     * MongoDB document ID (_id) - used for navigation links
+     */
+    mongoId?: string;
 };
 

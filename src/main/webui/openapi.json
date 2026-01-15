@@ -74,9 +74,13 @@
         "description": "Grouped report row with product_id grouping or individual report without product_id",
         "type": "object",
         "properties": {
-          "productId": {
+          "reportId": {
             "type": "string",
-            "description": "Product ID if report has product_id, null otherwise"
+            "description": "Report ID: product_id if product, actual report ID (input.scan.id) if component"
+          },
+          "reportType": {
+            "type": "string",
+            "description": "Report type: 'product' or 'component'"
           },
           "cveId": {
             "type": "string",
@@ -84,18 +88,27 @@
           },
           "repositoriesAnalyzed": {
             "type": "string",
-            "description": "Repositories analyzed (completed/total) - only for reports with product_id"
+            "description": "Repositories analyzed: 'completed/total' for products, '1' for components"
           },
-          "name": {
-            "type": "string",
-            "description": "Image name (only for reports without product_id)"
+          "cveStatusCounts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "ExploitIQ status counts: Map<Status, Count> - aggregated for products, single report for components"
           },
-          "state": {
+          "completedAt": {
             "type": "string",
-            "description": "Report state (only for reports without product_id)"
+            "description": "Completion timestamp"
+          },
+          "mongoId": {
+            "type": "string",
+            "description": "MongoDB document ID (_id) - used for navigation links"
           }
         },
         "required": [
+          "reportType",
           "cveId"
         ]
       },

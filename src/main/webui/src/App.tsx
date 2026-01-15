@@ -18,10 +18,13 @@ const App: React.FC = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/Reports" element={<ReportsPage />} />
           <Route
-            path="/Reports/:productId/:cveId/:reportId"
+            path="/Reports/product/:cveId/:reportId"
+            element={<ReportPage />}
+          />
+          <Route
+            path="/Reports/component/:cveId/:mongoId"
             element={<RepositoryReportPage />}
           />
-          <Route path="/Reports/:productId/:cveId" element={<ReportPage />} />
           <Route path="/Reports/:productId" element={<ProductRedirect />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

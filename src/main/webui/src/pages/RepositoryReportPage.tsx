@@ -22,16 +22,15 @@ import RepositoryReportPageSkeleton from "../components/RepositoryReportPageSkel
 
 
 const RepositoryReportPage: React.FC = () => {
-  const { productId, cveId, reportId } = useParams<{
-    productId: string;
+  const { cveId, mongoId } = useParams<{
     cveId: string;
-    reportId: string;
+    mongoId: string;
   }>();
   
 
   const { data: report, loading, error } = useApi<FullReport>(
-    () => getRepositoryReport(reportId || ""),
-    { deps: [reportId] }
+    () => getRepositoryReport(mongoId || ""),
+    { deps: [mongoId] }
   );
 
   const image = report?.input?.image;
@@ -41,11 +40,12 @@ const RepositoryReportPage: React.FC = () => {
     output.find((v) => v.vuln_id === cveId) || output[0];
   const reportIdDisplay = vuln?.vuln_id
     ? `${vuln.vuln_id} | ${image?.name || ""} | ${image?.tag || ""}`
-    : reportId || "";
+    : mongoId || "";
 
-  // Extract product name from metadata, fallback to productId
-  const productName = report?.metadata?.product_name || productId || "";
-  const productCveBreadcrumbText = `${productName}/${cveId || ""}`;
+  // Extract product name from metadata
+  const productName = report?.metadata?.product_name || "";
+  const productId = report?.metadata?.product_id || "";
+  const productCveBreadcrumbText = productName ? `${productName}/${cveId || ""}` : cveId || "";
 
   const showReport = () => {
     if (error) {
@@ -58,7 +58,7 @@ const RepositoryReportPage: React.FC = () => {
             titleText="Report not found"
           >
             <EmptyStateBody>
-              The selected report with id: {reportId} has not been found. 
+              The selected report with id: {mongoId} has not been found. 
             </EmptyStateBody>
           </EmptyState>
         );
@@ -73,7 +73,7 @@ const RepositoryReportPage: React.FC = () => {
               <p>
                 {errorStatus || "Error"}: {getErrorMessage(error)}
               </p>
-              The selected report with id: {reportId} could not be retrieved.
+              The selected report with id: {mongoId} could not be retrieved.
             </EmptyStateBody>
           </EmptyState>
         );
@@ -120,7 +120,7 @@ const RepositoryReportPage: React.FC = () => {
         </BreadcrumbItem>
         {productId && cveId && (
           <BreadcrumbItem>
-            <Link to={`/Reports/${productId}/${cveId}`}>
+            <Link to={`/Reports/product/${cveId}/${productId}`}>
               {productCveBreadcrumbText}
             </Link>
           </BreadcrumbItem>
