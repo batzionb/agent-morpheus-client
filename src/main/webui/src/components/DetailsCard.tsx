@@ -10,7 +10,6 @@ import {
   Flex,
   FlexItem,
 } from "@patternfly/react-core";
-import { Link } from "react-router";
 import type { FullReport } from "../types/FullReport";
 import CvssBanner from "./CvssBanner";
 import CveStatus from "./CveStatus";

@@ -51,5 +51,18 @@ export type Report = {
      * Git reference (commit hash, tag, or branch) from source_info
      */
     ref?: string;
+    /**
+     * Error information if the report failed
+     */
+    error?: {
+        /**
+         * Error type
+         */
+        type: string;
+        /**
+         * Error message
+         */
+        message: string;
+    };
 };
 

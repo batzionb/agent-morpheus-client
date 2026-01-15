@@ -27,8 +27,6 @@ import { getErrorMessage } from "../utils/errorHandling";
 import FormattedTimestamp from "./FormattedTimestamp";
 import TableEmptyState from "./TableEmptyState";
 
-const PER_PAGE = 10;
-
 interface ReportsTableProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
@@ -49,27 +47,35 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
   analysisStateOptions,
 }) => {
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
   const [sortColumn, setSortColumn] = useState<SortColumn>("completedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   // Use the custom hook for data fetching and processing (Rule VI)
+  // Server-side pagination is handled by the API
   const {
-    rows: filteredRows,
+    rows,
     loading,
     error,
+    pagination,
   } = useReportsTableData({
     searchValue,
     cveSearchValue,
     filters,
     sortColumn,
     sortDirection,
+    page,
+    perPage,
   });
 
-  // Paginate the filtered rows
-  const paginatedRows = filteredRows.slice(
-    (page - 1) * PER_PAGE,
-    page * PER_PAGE
-  );
+  const onPerPageSelect = (
+    _event: React.MouseEvent | React.KeyboardEvent | MouseEvent,
+    newPerPage: number,
+    newPage: number
+  ) => {
+    setPerPage(newPerPage);
+    setPage(newPage);
+  };
 
   const columnNames = {
     reportId: "Report ID",
@@ -145,7 +151,7 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
     );
   }
 
-  if (paginatedRows.length === 0) {
+  if (rows.length === 0) {
     return (
       <>
         <ReportsToolbar
@@ -157,10 +163,17 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
           onFiltersChange={onFiltersChange}
           analysisStateOptions={analysisStateOptions}
           pagination={{
-            itemCount: filteredRows.length,
+            itemCount: pagination?.totalElements ?? 0,
             page,
-            perPage: PER_PAGE,
+            perPage,
             onSetPage: (_event: unknown, newPage: number) => setPage(newPage),
+            onPerPageSelect,
+            perPageOptions: [
+              { title: "10", value: 10 },
+              { title: "20", value: 20 },
+              { title: "50", value: 50 },
+              { title: "100", value: 100 },
+            ],
           }}
         />
         <TableEmptyState columnCount={6} titleText="No reports found" />
@@ -178,12 +191,19 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
         filters={filters}
         onFiltersChange={onFiltersChange}
         analysisStateOptions={analysisStateOptions}
-        pagination={{
-          itemCount: filteredRows.length,
-          page,
-          perPage: PER_PAGE,
-          onSetPage: (_event: unknown, newPage: number) => setPage(newPage),
-        }}
+          pagination={{
+            itemCount: pagination?.totalElements ?? 0,
+            page,
+            perPage,
+            onSetPage: (_event: unknown, newPage: number) => setPage(newPage),
+            onPerPageSelect,
+            perPageOptions: [
+              { title: "10", value: 10 },
+              { title: "20", value: 20 },
+              { title: "50", value: 50 },
+              { title: "100", value: 100 },
+            ],
+          }}
       />
       <Table aria-label="Reports table">
           <Thead>
@@ -264,12 +284,12 @@ const ReportsTable: React.FC<ReportsTableProps> = ({
             </Tr>
           </Thead>
           <Tbody>
-            {paginatedRows.length === 0 ? (
+            {rows.length === 0 ? (
               <Tr>
                 <Td colSpan={6}>No reports found</Td>
               </Tr>
             ) : (
-              paginatedRows.map((row, index) => {
+              rows.map((row, index) => {
                 const isCompleted = isAnalysisCompleted(row.analysisState);
                 return (
                   <Tr key={`${row.reportId}-${row.cveId}-${index}`}>

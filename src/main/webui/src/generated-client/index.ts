@@ -9,6 +9,7 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 
 export type { FailedComponent } from './models/FailedComponent';
 export type { Feedback } from './models/Feedback';
+export type { GroupedReportRow } from './models/GroupedReportRow';
 export type { Image } from './models/Image';
 export type { Justification } from './models/Justification';
 export type { Product } from './models/Product';
@@ -16,6 +17,7 @@ export type { ProductReportsSummary } from './models/ProductReportsSummary';
 export type { ProductSummary } from './models/ProductSummary';
 export type { Report } from './models/Report';
 export type { ReportData } from './models/ReportData';
+export type { ReportError } from './models/ReportError';
 export type { ReportRequest } from './models/ReportRequest';
 export type { ReportRequestId } from './models/ReportRequestId';
 export type { ReportsSummary } from './models/ReportsSummary';

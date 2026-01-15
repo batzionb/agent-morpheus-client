@@ -1,10 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { PageSection, Title } from "@patternfly/react-core";
-import { useApi } from "../hooks/useApi";
-import {
-  ReportEndpointService as Reports,
-  ProductSummary,
-} from "../generated-client";
 import ReportsTable from "../components/ReportsTable";
 import { ReportsToolbarFilters } from "../components/ReportsToolbar";
 
@@ -16,21 +11,17 @@ const ReportsPage: React.FC = () => {
     analysisState: [],
   });
 
-  const { data: productSummaries } = useApi<Array<ProductSummary>>(() =>
-    Reports.getApiV1ReportsProduct()
-  );
-
-  const analysisStateOptions = useMemo(() => {
-    if (!productSummaries) return [];
-    const states = new Set<string>();
-    productSummaries.forEach((productSummary) => {
-      const productState = productSummary.summary.productState;
-      if (productState && productState !== "-") {
-        states.add(productState);
-      }
-    });
-    return Array.from(states).sort();
-  }, [productSummaries]);
+  // Static list of analysis state options
+  // These match the status values supported by the API
+  const analysisStateOptions = [
+    "completed",
+    "sent",
+    "failed",
+    "queued",
+    "expired",
+    "pending",
+    "analysing",
+  ];
 
   return (
     <>

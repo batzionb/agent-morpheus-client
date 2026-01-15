@@ -33,7 +33,16 @@ interface ReportsToolbarProps {
     itemCount: number;
     page: number;
     perPage: number;
-    onSetPage: (event: unknown, newPage: number) => void;
+    onSetPage: (
+      event: React.MouseEvent | React.KeyboardEvent | MouseEvent,
+      newPage: number
+    ) => void;
+    onPerPageSelect?: (
+      event: React.MouseEvent | React.KeyboardEvent | MouseEvent,
+      newPerPage: number,
+      newPage: number
+    ) => void;
+    perPageOptions?: Array<{ title: string; value: number }>;
   };
 }
 
@@ -200,8 +209,9 @@ const ReportsToolbar: React.FC<ReportsToolbarProps> = ({
                 page={pagination.page}
                 perPage={pagination.perPage}
                 onSetPage={pagination.onSetPage}
-                onPerPageSelect={() => {}}
-                perPageOptions={[]}
+                onPerPageSelect={pagination.onPerPageSelect || (() => {})}
+                perPageOptions={pagination.perPageOptions || []}
+                widgetId="reports-pagination"
               />
             </ToolbarItem>
           </ToolbarGroup>
