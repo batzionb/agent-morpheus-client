@@ -457,21 +457,46 @@ public class ReportService {
       }
     }
 
+  private static final String SYFT_IMAGE_LABELS_PREFIX = "syft:image:labels:";
+
+  /**
+   * Gets value from properties for the given config key. When the SBOM comes from Syft (e.g. SPDX
+   * component processing), labels may be stored with or without the syft:image:labels: prefix.
+   * Tries the key as-is, then with the prefix, then without the prefix, so matching works either way.
+   */
+  private String getPropertyIgnoringSyftPrefix(Map<String, String> properties, String configKey) {
+    String key = configKey != null ? configKey.trim() : null;
+    if (key == null) {
+      return null;
+    }
+    String value = properties.get(key);
+    if (value != null) {
+      return value;
+    }
+    if (!key.startsWith(SYFT_IMAGE_LABELS_PREFIX)) {
+      value = properties.get(SYFT_IMAGE_LABELS_PREFIX + key);
+      if (value != null) {
+        return value;
+      }
+    }
+    if (key.startsWith(SYFT_IMAGE_LABELS_PREFIX)) {
+      return properties.get(key.substring(SYFT_IMAGE_LABELS_PREFIX.length()));
+    }
+    return null;
+  }
+
   private String getSourceLocationFromMetadataLabels(Map<String, String> properties) {
     return appConfig.image().source().locationKeys().stream()
-        .map(String::trim)
-        .map(properties::get)
+        .map(key -> getPropertyIgnoringSyftPrefix(properties, key))
         .filter(Objects::nonNull)
         .findFirst()
         .orElseThrow(() -> new SbomValidationException(
             "SBOM is missing required field. Checked keys: " + appConfig.image().source().locationKeys() + " existing labels: " + properties.toString()));
   }
 
-
   private String getCommitIdFromMetadataLabels(HashMap<String, String> properties) {
     return appConfig.image().source().commitIdKeys().stream()
-        .map(String::trim)
-        .map(properties::get)
+        .map(key -> getPropertyIgnoringSyftPrefix(properties, key))
         .filter(Objects::nonNull)
         .findFirst()
         .orElseThrow(() -> new SbomValidationException(

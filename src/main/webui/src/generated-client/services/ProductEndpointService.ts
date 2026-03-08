@@ -74,32 +74,27 @@ export class ProductEndpointService {
     }
     /**
      * Create new product from SPDX SBOM
-     * Uploads an SPDX SBOM file, parses it, creates a product, and starts async processing. Requires a vulnerability ID to include in all component reports.
+     * Uploads an SPDX SBOM file, parses it, creates a product, and starts async processing. Requires a vulnerability ID to include in all component reports. Accepts optional credentials for private repository access.
      * @returns any Product creation request accepted
      * @throws ApiError
      */
     public static postApiV1ProductsUploadSpdx({
-        vulnerabilityId,
         formData,
     }: {
-        /**
-         * Vulnerability ID (e.g., CVE-2024-12345) to include in all component reports
-         */
-        vulnerabilityId: string,
         formData: {
+            cveId?: string;
             file?: Blob;
+            secretValue?: string;
+            username?: string;
         },
     }): CancelablePromise<Record<string, any>> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/products/upload-spdx',
-            query: {
-                'vulnerabilityId': vulnerabilityId,
-            },
             formData: formData,
             mediaType: 'multipart/form-data',
             errors: {
-                400: `Invalid SPDX file, missing required data, or missing vulnerability ID`,
+                400: `Invalid SPDX file, missing required data, missing CVE ID, or credential validation error`,
                 500: `Internal server error`,
             },
         });

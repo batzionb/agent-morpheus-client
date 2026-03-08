@@ -203,9 +203,6 @@ const RequestAnalysisModal: React.FC<RequestAnalysisModalProps> = ({
     }
   };
 
-  // Submit button is only disabled during submission or when private repo is enabled with empty auth secret
-  const isSubmitDisabled = isSubmitting || (isAuthenticationSecretChecked && authenticationSecret.trim() === "");
-
   /**
    * Handles errors from the API submission, setting field-specific or generic error messages
    * @param err The error caught from the API call
@@ -246,54 +243,51 @@ const RequestAnalysisModal: React.FC<RequestAnalysisModalProps> = ({
     setAuthenticationSecretError(null);
     setUsernameError(null);
   };
-
+    
+  const createFormData = (cveId: string, file: File) => {
+    const formData: { cveId: string; file: File; secretValue?: string; username?: string } = {
+      cveId: cveId,
+      file: file,
+    };
+    if (isAuthenticationSecretChecked && authenticationSecret.trim() !== "") {
+      formData.secretValue = authenticationSecret.trim();
+      const credentialType = detectCredentialType(authenticationSecret);
+      if (credentialType === "PAT" && username.trim() !== "") {
+        formData.username = username.trim();
+      }
+    }
+    return formData;
+    
+  };
   /**
    * Uploads SBOM file and handles response based on format
    */
   const uploadSbomFile = async (
     file: File,
-    vulnerabilityId: string,
+    cveId: string,
     sbomFormat: SbomFormat
   ): Promise<void> => {
     // Determine API function and navigation path based on format
     let apiCall: () => Promise<any>;
     let getNavigationPath: (response: any) => string;
 
+    const formData = createFormData(cveId, file);
     if (sbomFormat === SbomFormat.SPDX) {
+      // Build form data for SPDX with CVE ID and optional credentials      
       apiCall = () =>
         ProductEndpointService.postApiV1ProductsUploadSpdx({
-          vulnerabilityId,
-          formData: { file },
+          formData,
         });
       getNavigationPath = (response: Record<string, any>) =>
-        `/reports/product/${response.productId}/${vulnerabilityId}`;
-    } else {
-      // Build form data for CycloneDX with optional credentials
-      const formData: {
-        cveId: string;
-        file: File;
-        secretValue?: string;
-        username?: string;
-      } = {
-        cveId: vulnerabilityId,
-        file: file,
-      };
-
-      // Add credentials if provided
-      if (isAuthenticationSecretChecked && authenticationSecret.trim() !== "") {
-        formData.secretValue = authenticationSecret.trim();
-        const credentialType = detectCredentialType(authenticationSecret);
-        if (credentialType === "PAT" && username.trim() !== "") {
-          formData.username = username.trim();
-        }
-      }
-
+        `/reports/product/${response.productId}/${cveId}`;
+    } else {      
+            
       apiCall = () =>
         ProductEndpointService.postApiV1ProductsUploadCyclonedx({
           formData,
         });
       getNavigationPath = (response: ReportData) =>
-        `/reports/component/${vulnerabilityId}/${response.reportRequestId.id}`;
+        `/reports/component/${cveId}/${response.reportRequestId.id}`;
     }
 
     // Call API and navigate using unified code path
@@ -582,8 +576,7 @@ const RequestAnalysisModal: React.FC<RequestAnalysisModalProps> = ({
         <Button
           key="submit"
           variant="primary"
-          onClick={handleSubmit}
-          isDisabled={isSubmitDisabled}
+          onClick={handleSubmit}          
           isLoading={isSubmitting}
         >
           {isSubmitting ? "Submitting..." : "Submit Analysis Request"}

@@ -1,0 +1,53 @@
+{
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "creationInfo": {
+    "created": "2026-03-09T11:09:33Z",
+    "creators": ["Tool: build-and-push.sh"]
+  },
+  "dataLicense": "CC0-1.0",
+  "name": "private-source-test",
+  "spdxVersion": "SPDX-2.3",
+  "documentNamespace": "https://github.com/batzionb/spdx-private-source-test-1/spdx/private-source",
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-product-private-source-test",
+      "downloadLocation": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "SECURITY",
+          "referenceLocator": "cpe:/a:test:private-source-test:1.0",
+          "referenceType": "cpe22Type"
+        }
+      ],
+      "filesAnalyzed": false,
+      "name": "private-source-test",
+      "versionInfo": "1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-component-private-source-test",
+      "downloadLocation": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE_MANAGER",
+          "referenceLocator": "pkg:oci/spdx-private-source-test-2@sha256:3fd256c8255e547cc3c3a1c38e2bd33b753cb64b7534fac33a2e702500fad5f6?repository_url=ghcr.io/batzionb/spdx-private-source-test-2&tag=latest",
+          "referenceType": "purl"
+        }
+      ],
+      "filesAnalyzed": false,
+      "name": "spdx-private-source-test-2",
+      "versionInfo": "latest"
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relatedSpdxElement": "SPDXRef-product-private-source-test",
+      "relationshipType": "DESCRIBES"
+    },
+    {
+      "spdxElementId": "SPDXRef-component-private-source-test",
+      "relatedSpdxElement": "SPDXRef-product-private-source-test",
+      "relationshipType": "PACKAGE_OF"
+    }
+  ]
+}

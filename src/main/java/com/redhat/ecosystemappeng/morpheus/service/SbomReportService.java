@@ -161,7 +161,7 @@ public class SbomReportService {
    * @throws ValidationException if validation fails (contains field-specific error messages)
    * @throws IOException if file cannot be read
    */
-  public String submitSpdx(InputStream fileInputStream, String cveId) throws IOException {
+  public String submitSpdx(InputStream fileInputStream, String cveId, String credentialId) throws IOException {
     LOGGER.info("Processing SPDX file upload for CVE: " + cveId);
 
     Map<String, String> errors = new HashMap<>();
@@ -223,15 +223,15 @@ public class SbomReportService {
     
     Product product = this.createProduct(cveId, productInfo.name(), productInfo.version(), parsed.components().size(), metadata);
 
-    // Start async processing
-    processSpdxAsync(product.id(), parsed, cveId);
+    // Start async processing with credentialId
+    processSpdxAsync(product.id(), parsed, cveId, credentialId);
 
     LOGGER.infof("Created product %s, started async processing", product.id());
     
     return product.id();
   }
 
-  public void processSpdxAsync(String productId, SpdxParsingService.ParsedSpdx parsed, String vulnerabilityId) {
+  public void processSpdxAsync(String productId, SpdxParsingService.ParsedSpdx parsed, String vulnerabilityId, String credentialId) {
     CompletableFuture.runAsync(() -> {
       try {        
                 
@@ -253,7 +253,8 @@ public class SbomReportService {
             parsed.components(), 
             productId,
             componentMetadata,
-            vulnerabilityId
+            vulnerabilityId,
+            credentialId
         ); // Fire and forget - no waiting
       } catch (Exception e) {
         LOGGER.errorf(e, "Error during async processing for product: %s", productId);

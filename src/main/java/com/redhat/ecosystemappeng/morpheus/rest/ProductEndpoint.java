@@ -216,26 +216,11 @@ public class ProductEndpoint {
 
     try (InputStream fileInputStream = Files.newInputStream(file.uploadedFile())) {
       String credentialId = null;
-      if (Objects.nonNull(secretValue) && !secretValue.isBlank()) {
-        try {
-          InlineCredential credential = new InlineCredential(secretValue, username);
-          String userId = securityContext.getUserPrincipal().getName();
-          credentialId = credentialProcessingService.processAndStoreCredential(credential, userId);
-        } catch (IllegalArgumentException e) {
-          LOGGER.warnf(e, "Credential validation failed");
-          return Response.status(Status.BAD_REQUEST)
-            .entity(objectMapper.createObjectNode()
-            .put("error", e.getMessage()))
-            .build();
-        } catch (CredentialStorageException e) {
-          LOGGER.errorf(e, "Failed to store credential");
-          return Response.status(Status.INTERNAL_SERVER_ERROR)
-            .entity(objectMapper.createObjectNode()
-            .put("error", "Failed to store credential: " + e.getMessage()))
-            .build();
-        }
+      if (Objects.nonNull(secretValue) && !secretValue.isBlank()) {        
+        InlineCredential credential = new InlineCredential(secretValue, username);
+        String userId = securityContext.getUserPrincipal().getName();
+        credentialId = credentialProcessingService.processAndStoreCredential(credential, userId);        
       }
-
       ReportData reportData = sbomProcessingService.submitCycloneDx(cveId, fileInputStream);
 
       if (Objects.nonNull(credentialId) && Objects.nonNull(reportData.report())) {
@@ -259,6 +244,33 @@ public class ProductEndpoint {
   }
 
   @ServerExceptionMapper
+  public Response mapIllegalArgumentException(IllegalArgumentException e) {
+    LOGGER.errorf(e, "Input validation failed");
+    return Response.status(Response.Status.BAD_REQUEST)
+        .entity(objectMapper.createObjectNode()
+            .put("error", e.getMessage()))
+        .build();
+  }
+
+  @ServerExceptionMapper
+  public Response mapCredentialStorageException(CredentialStorageException e) {
+    LOGGER.errorf(e, "Failed to store credential");
+    return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+        .entity(objectMapper.createObjectNode()
+            .put("error", "Failed to store credential: " + e.getMessage()))
+        .build();
+  }
+
+  @ServerExceptionMapper
+  public Response mapIOException(IOException e) {
+    LOGGER.errorf(e, "I/O error processing request");
+    return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+        .entity(objectMapper.createObjectNode()
+            .put("error", "Failed to read or process uploaded file"))
+        .build();
+  }
+
+  @ServerExceptionMapper
   public Response mapException(Exception e) {
     LOGGER.error("Unexpected error in ProductEndpoint ", e);
     return Response.serverError()
@@ -272,7 +284,7 @@ public class ProductEndpoint {
   @Consumes(MediaType.MULTIPART_FORM_DATA)
   @Operation(
     summary = "Create new product from SPDX SBOM", 
-    description = "Uploads an SPDX SBOM file, parses it, creates a product, and starts async processing. Requires a vulnerability ID to include in all component reports.")
+    description = "Uploads an SPDX SBOM file, parses it, creates a product, and starts async processing. Requires a vulnerability ID to include in all component reports. Accepts optional credentials for private repository access.")
   @APIResponses({
     @APIResponse(
       responseCode = "202", 
@@ -286,45 +298,39 @@ public class ProductEndpoint {
     ),
     @APIResponse(
       responseCode = "400", 
-      description = "Invalid SPDX file, missing required data, or missing vulnerability ID"
+      description = "Invalid SPDX file, missing required data, missing CVE ID, or credential validation error"
     ),
     @APIResponse(
       responseCode = "500", 
       description = "Internal server error"
     )
   })
-  public Response newProduct(
+  public Response newProduct(  
+    @FormParam("cveId") String cveId,
     @Parameter(
       description = "SPDX SBOM file to upload",
       required = true
     )
     @FormParam("file") InputStream fileInputStream,
     @Parameter(
-      description = "Vulnerability ID (e.g., CVE-2024-12345) to include in all component reports",
-      required = true
+      description = "Optional authentication secret (SSH private key or Personal Access Token) for private repository access"
     )
-    @QueryParam("vulnerabilityId") String vulnerabilityId) {
-    try {
-      // Validate vulnerability ID is provided
-      if (vulnerabilityId == null || vulnerabilityId.trim().isEmpty()) {
-        return Response.status(Response.Status.BAD_REQUEST)
-            .entity(objectMapper.createObjectNode().put("error", "vulnerabilityId is required"))
-            .build();
-      }
-      
-      String productId = sbomProcessingService.submitSpdx(fileInputStream, vulnerabilityId);
+    @FormParam("secretValue") String secretValue,
+    @Parameter(
+      description = "Optional username for Personal Access Token authentication"
+    )
+    @FormParam("username") String username) throws IOException {
+      //uploadser
+      // Process credentials if provided (reuse same logic as CycloneDX)
+      String credentialId = null;
+      if (Objects.nonNull(secretValue) && !secretValue.isBlank()) {        
+        InlineCredential credential = new InlineCredential(secretValue, username);
+        String userId = securityContext.getUserPrincipal().getName();
+        credentialId = credentialProcessingService.processAndStoreCredential(credential, userId);        
+      }      
+      String productId = sbomProcessingService.submitSpdx(fileInputStream, cveId, credentialId);
       JsonNode response = objectMapper.createObjectNode().put("productId", productId);
       return Response.accepted(response).build();
-    } catch (IllegalArgumentException e) {
-      LOGGER.errorf("Invalid SPDX file: %s", e.getMessage());
-      return Response.status(Response.Status.BAD_REQUEST)
-          .entity(objectMapper.createObjectNode().put("error", e.getMessage()))
-          .build();
-    } catch (Exception e) {
-      LOGGER.error("Failed to create product from SPDX", e);
-      return Response.serverError()
-          .entity(objectMapper.createObjectNode().put("error", e.getMessage()))
-          .build();
-    }
+    
   }
 }

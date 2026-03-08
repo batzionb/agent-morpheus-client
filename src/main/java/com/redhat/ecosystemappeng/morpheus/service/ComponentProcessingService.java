@@ -2,6 +2,7 @@ package com.redhat.ecosystemappeng.morpheus.service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -38,6 +39,7 @@ public class ComponentProcessingService {
     private GenerateSbomService generateSbomService;
     private ProductRepositoryService productRepositoryService;
     private ReportRepositoryService reportRepositoryService;
+    private CredentialProcessingService credentialProcessingService;
 
     @Inject
     @RestClient
@@ -71,6 +73,11 @@ public class ComponentProcessingService {
         this.reportRepositoryService = reportRepositoryService;
     }
 
+    @Inject
+    public void setCredentialProcessingService(CredentialProcessingService credentialProcessingService) {
+        this.credentialProcessingService = credentialProcessingService;
+    }
+
     /**
      * Process a single component through the pipeline:
      * 1. Generate report (SBOM generation and report creation)
@@ -83,8 +90,9 @@ public class ComponentProcessingService {
      * @param productId The product ID this component belongs to
      * @param metadata Additional metadata to include in the report
      * @param vulnerabilityId Optional vulnerability ID to include in the report
+     * @param credentialId Optional credential ID to inject into the report
      */
-    private void processComponent(ComponentInfo component, String productId, Map<String, String> metadata, String vulnerabilityId) {
+    private void processComponent(ComponentInfo component, String productId, Map<String, String> metadata, String vulnerabilityId, String credentialId) {
         ReportData reportData = null;
         
         // Try to generate report - all failures here go to submissionFailures
@@ -113,6 +121,11 @@ public class ComponentProcessingService {
             productRepositoryService.addSubmissionFailure(productId, new FailedComponent(component.name(), component.version(), component.image(), "Unexpected error during report generation"));
             return; // Exit early - no report to save
         }        
+        // Inject credentialId into report if provided
+        if (Objects.nonNull(credentialId) && Objects.nonNull(reportData.report())) {
+            credentialProcessingService.injectCredentialId(reportData.report(), credentialId);
+        }
+
         // Try to save report and submit to component syncer
         ReportData savedReportData = null;
         try {
@@ -267,9 +280,10 @@ public class ComponentProcessingService {
      * @param productId The product ID
      * @param metadata Additional metadata
      * @param vulnerabilityId Optional vulnerability ID to include in all component reports
+     * @param credentialId Optional credential ID to inject into all component reports
      */
     public void processComponents(List<ComponentInfo> components, String productId, 
-                                 Map<String, String> metadata, String vulnerabilityId) {
+                                 Map<String, String> metadata, String vulnerabilityId, String credentialId) {
         if (components.isEmpty()) {
             throw new IllegalArgumentException("No components to process");
         }
@@ -280,7 +294,7 @@ public class ComponentProcessingService {
         components.forEach(component -> {
             executorService.submit(() -> {
                 try {
-                    this.processComponent(component, productId, metadata, vulnerabilityId);
+                    this.processComponent(component, productId, metadata, vulnerabilityId, credentialId);
                 } catch (Exception e) {
                     String errorMessage = getErrorMessage(e);
                     LOGGER.errorf("Unexpected error processing component %s: %s", component.name(), errorMessage);
