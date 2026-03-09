@@ -222,3 +222,21 @@ The request analysis modal SHALL provide optional authentication credentials for
 - **THEN** the error message for that field is cleared
 - **AND** the error message no longer displays under the modified field
 
+### Requirement: SPDX no supported components error
+When the user has selected a valid SPDX 2.3 file and clicks submit, the request analysis modal SHALL call the `POST /api/v1/products/parse-spdx` endpoint (using the generated OpenAPI client) before calling upload-spdx. If the parse result has zero supported components (the `components` array is empty), the modal SHALL display an error message under the file upload field and SHALL NOT call the upload-spdx endpoint. The error message SHALL clearly indicate that no supported components were found and that components must have an OCI image purl (e.g. "No supported components. All components must have an OCI image purl (pkg:oci/...)."). When the user selects a different file, the modal SHALL clear this error (same behavior as other file-related errors). The modal SHALL use FormHelperText with error variant to display the message under the file entry.
+
+#### Scenario: No supported components error under file entry
+- **WHEN** a user selects a valid SPDX 2.3 file in the request analysis modal
+- **AND** the user enters a valid CVE ID and clicks "Submit Analysis Request"
+- **AND** the modal calls the parse-spdx endpoint and the response has an empty `components` array (zero supported components)
+- **THEN** the modal displays an error message under the file upload field indicating that no supported components were found and that components must have an OCI image purl
+- **AND** the modal does NOT call the upload-spdx endpoint
+- **AND** the modal remains open with form data preserved
+- **AND** the submit button is re-enabled after the parse-spdx call completes
+
+#### Scenario: No supported components error clears on file change
+- **WHEN** a user has the "no supported components" error displayed under the file upload field
+- **AND** the user selects a different file using the FileUpload component or clears the file
+- **THEN** the error message under the file upload field is cleared
+- **AND** the error no longer displays
+
