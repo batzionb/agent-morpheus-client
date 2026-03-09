@@ -1,7 +1,5 @@
 # products-api Specification
 
-## Purpose
-TBD - created by archiving change revert-groupby-to-products-table. Update Purpose after archive.
 ## Requirements
 ### Requirement: Products API Endpoint
 The `/api/v1/reports/product` endpoint SHALL support sorting by CVE ID in addition to the existing sort fields.
