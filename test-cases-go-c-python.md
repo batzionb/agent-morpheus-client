@@ -710,86 +710,68 @@ This section covers the flow of uploading an SPDX SBOM representing an entire pr
 
 ---
 
-### TC-PROD-006: SPDX Product Scan - Component Processing Failure for One Component
+### TC-PROD-006: SPDX Product Scan — All Components Not Vulnerable (CVE-2025-6965)
 
-**Objective:** Verify that a processing failure for one component is displayed as an excluded component and does not block the remaining components.
-
-**Preconditions:**
-- One component image in the SPDX SBOM is invalid or unreachable (e.g., `pkg:oci/nonexistent-image@sha256:000`).
-
-**Steps:**
-
-| Step | User Action (UI) | Frontend Behavior (API) | Expected Result |
-|------|-------------------|------------------------|-----------------|
-| 1 | Upload SPDX with 3 OCI components (one referencing a non-pullable image) via the Request Analysis Modal | Frontend sends upload request | Response: `200 OK` |
-| 2 | Observe the product report page | Frontend loads product summary | **Number of repositories analyzed**: initially `3 analyzed` |
-| 3 | Wait for component processing | Frontend polls product status | **Excluded components** count updates to `1/3` (clickable link) |
-| 4 | Click the **"Excluded components"** link | Frontend navigates to Excluded Components page | Table shows 1 row with the failed component and an error message describing the failure |
-| 5 | Return to the product report page | Frontend navigates back | Repository Reports Table shows 2 component rows proceeding through analysis |
-| 6 | Wait for the remaining 2 components to complete | Frontend polls until all complete | Both remaining reports reach **Completed** status with exploitability results |
-
----
-
-### TC-PROD-007: SPDX Product Scan - Component Syncer Timeout
-
-**Objective:** Verify the UI displays expired reports when the Component Syncer does not respond within the configured timeout.
+**Objective:** Verify a product SPDX scan where **every** analyzed component is **Not Vulnerable** for the chosen CVE when using an SBOM that omits the image that would otherwise be affected.
 
 **Preconditions:**
-- Set `morpheus.syncer.timeout` to a short value for testing (e.g., `10s`).
+- SPDX fixture: [`not-vulnerable-CVE-2025-6965.json`](https://drive.google.com/file/d/1jNyeeg9i9eFx5ZCc3vs17CCGewLmumxW/view?usp=drive_link)
 
 **Steps:**
 
 | Step | User Action (UI) | Frontend Behavior (API) | Expected Result |
 |------|-------------------|------------------------|-----------------|
-| 1 | Upload SPDX via the Request Analysis Modal | Frontend sends upload and redirects to product page | Reports created and sent to Component Syncer |
-| 2 | Wait on the product report page beyond the syncer timeout | Frontend polls product status | Component States pie chart updates |
-| 3 | Observe the Repository Reports Table rows | Frontend renders updated report statuses | Affected report rows show Analysis State: red **"Expired"** with exclamation-triangle icon |
-| 4 | Observe the overall product Finding in the Reports listing page | Navigate to Reports page via sidebar | Product row shows **"Failed"** finding label (grey) indicating mixed/failed results |
+| 1 | Open the **Request Analysis Modal**, enter **`CVE-2025-6965`**, upload `not-vulnerable-CVE-2025-6965.json` | Frontend sends `POST /api/v1/products/upload-spdx` | Response: `200 OK`. Redirect to product report page |
+| 2 | Observe **Report Details** | Frontend loads product summary | **Number of repositories analyzed**: `8 analyzed` (9 OCI packages minus `argocd-extensions`). **Excluded components**: `0/8` |
+| 3 | Wait until all component reports **Completed** | Frontend polls product status | **Component States**: all **Completed** |
+| 4 | Observe the **CVE Status** summary / pie chart | Frontend renders `justificationStatusCounts` | **All** components **Not Vulnerable** (green); **zero** Vulnerable; **zero** Uncertain |
+| 5 | Open the **ExploitIQ Status** filter, select **"Not Vulnerable"** | Frontend filters table | Table lists all **8** rows |
 
 ---
 
-### TC-PROD-008: Product Deletion Cascades to Reports
+### TC-PROD-007: SPDX Product Scan — One Uncertain (CVE-2025-6965)
 
-**Objective:** Verify that deleting a Product through the UI also removes all associated Reports.
-
-**Steps:**
-
-| Step | User Action (UI) | Frontend Behavior (API) | Expected Result |
-|------|-------------------|------------------------|-----------------|
-| 1 | Create a Product via SPDX upload with multiple components through the Request Analysis Modal | Frontend sends upload and redirects | Product and multiple Reports created |
-| 2 | Navigate to the **Reports** page via sidebar | Frontend sends `GET /api/v1/products` with pagination | The new product appears in the Reports Table |
-| 3 | Select the product row and trigger deletion (via delete action) | Frontend sends `DELETE /api/v1/products/{product_id}` | Response: `204 No Content` |
-| 4 | Observe the Reports Table | Frontend refreshes the list | The deleted product no longer appears in the table |
-| 5 | Navigate directly to `/reports/product/{product_id}/{cveId}` | Frontend sends `GET /api/v1/reports/product/{product_id}` | Response: `404 Not Found`. Page displays "Report not found" or redirects |
-
----
-
-### TC-PROD-009: Product Summary Aggregation and Filtering
-
-**Objective:** Verify the product summary correctly aggregates exploitability results across all components and supports filtering.
+**Objective:** Verify aggregation when **exactly one** component is **Uncertain** and the remainder are **Not Vulnerable** for **CVE-2025-6965**.
 
 **Preconditions:**
-- A completed product scan with 3 components:
-  - Component A: CVE is exploitable (`TRUE`)
-  - Component B: CVE is not exploitable (`FALSE`)
-  - Component C: CVE status unknown (`UNKNOWN`)
+- SPDX fixture: [`uncertain-CVE-2025-6965.json`]('https://drive.google.com/file/d/1h8RCsX9_ywTfsKgIEumXIBh0ohGTSQIT/view?usp=drive_link') 
 
 **Steps:**
 
 | Step | User Action (UI) | Frontend Behavior (API) | Expected Result |
 |------|-------------------|------------------------|-----------------|
-| 1 | Navigate to the completed product report page | Frontend sends `GET /api/v1/reports/product/{product_id}` | Product report page loads |
-| 2 | Observe the **CVE Status** pie chart | Frontend renders `justificationStatusCounts` | Pie chart shows: 1 Vulnerable (red), 1 Not Vulnerable (green), 1 Uncertain (grey) |
-| 3 | Observe the **Component States** pie chart | Frontend renders `statusCounts` | Pie chart shows: 3 Completed |
-| 4 | In the **Repository Reports Table toolbar**, open the **ExploitIQ Status** filter dropdown and select **"Vulnerable"** | Frontend sends `GET /api/v1/reports?productId={id}&exploitIqStatus=TRUE` | Table filters to show only Component A (the vulnerable one) |
-| 5 | Clear the ExploitIQ Status filter and select **"Not Vulnerable"** | Frontend re-queries with `exploitIqStatus=FALSE` | Table shows only Component B |
-| 6 | Click **"Clear All Filters"** | Frontend removes all filters and re-queries | Table shows all 3 component rows |
-| 7 | Click the **"View"** button on the Vulnerable component row | Frontend navigates to `/reports/component/CVE/{reportId}` | Individual report page loads with red **"Vulnerable"** label |
-| 8 | Use the breadcrumb to navigate back to the product page | Frontend navigates to product report | Product page loads with aggregated view |
+| 1 | Open the **Request Analysis Modal**, enter **`CVE-2025-6965`**, upload `uncertain-CVE-2025-6965.json` | Frontend sends `POST /api/v1/products/upload-spdx` | Response: `200 OK` |
+| 2 | Wait until all component reports **Completed** | Frontend polls | **9** repositories analyzed, all **Completed** |
+| 3 | Observe the **CVE Status** pie chart | Frontend renders counts | **1 Uncertain** (grey), **8 Not Vulnerable** (green), **0 Vulnerable** |
+| 4 | Filter the Repository Reports Table by **"Uncertain"** | `exploitIqStatus=UNKNOWN` (or equivalent) | **One** row (expected: **argocd-extensions** image / component) |
+| 5 | Open **"View"** on the Uncertain row | Navigate to component report | ExploitIQ status **Uncertain**; reason/summary consistent with inconclusive reachability |
 
 ---
 
-### TC-PROD-010: SPDX Upload - Queue Full Rejection
+### TC-PROD-008: SPDX Product Scan — One Vulnerable (CVE-2025-6965)
+
+> **Test data:** Not provided yet. Waiting for signed SPDX file, CVE  and which component is expected to be **Vulnerable** before this case can be executed. Fill in the blanks below when available.
+
+**Objective:** Verify that when scanning a Product-provided SPDX product SBOM, **exactly one** component is reported **Vulnerable** for the agreed CVE, and the product summary + component report show that result.
+
+**Preconditions:**
+- SPDX fixture: _____________________ (path or link — *pending*)
+- CVE ID: _____________________ (expected: *pending*)
+- Expected vulnerable component (image/repo name): _____________________ (*pending*)
+
+**Steps:**
+
+| Step | User Action (UI) | Frontend Behavior (API) | Expected Result |
+|------|-------------------|------------------------|-----------------|
+| 1 | Open the **Request Analysis Modal**, enter the **CVE ID** from preconditions, upload the **SPDX file** from preconditions | Frontend sends upload | Response: `200 OK` |
+| 2 | Wait until all component reports **Completed** | Frontend polls | **N** repositories analyzed (N = number of OCI components in the supplied SPDX; record when test data exists) |
+| 3 | Observe the **CVE Status** pie chart | Frontend renders counts | **1 Vulnerable** (red); remaining rows **Not Vulnerable** and/or **Uncertain** per Product oracle (record actual counts) |
+| 4 | Filter by **"Vulnerable"** | Table filter | **One** row — same component as in **Expected vulnerable component** precondition |
+| 5 | Click **"View"** on the vulnerable row | Component report page | **Vulnerable** label; **Reason**, **Summary**, and **Checklist** consistent with Product-signed expected outcome for that CVE |
+
+---
+
+### TC-PROD-09: SPDX Upload - Queue Full Rejection
 
 **Objective:** Verify the UI displays an error when the request queue is full.
 
@@ -808,7 +790,7 @@ This section covers the flow of uploading an SPDX SBOM representing an entire pr
 
 ---
 
-### TC-PROD-011: SPDX Upload with Credentials for Private Registry
+### TC-PROD-10: SPDX Upload with Credentials for Private Registry
 
 **Objective:** Verify that credentials provided through the UI during SPDX upload allow the system to process images from a private container registry.
 
@@ -826,7 +808,7 @@ This section covers the flow of uploading an SPDX SBOM representing an entire pr
 
 ---
 
-### TC-PROD-012: Product Report - Reports Page Listing
+### TC-PROD-11: Product Report - Reports Page Listing
 
 **Objective:** Verify product scan results are correctly displayed and filterable on the main Reports page.
 
@@ -905,7 +887,7 @@ Short matrix for **SBOM (SPDX / CycloneDX)** vs **Single Repository**, with **PA
 
 ### TC-MATRIX-001: SPDX + PAT (private registry)
 
-**Covered by:** TC-PROD-011 (section 4, SPDX upload with credentials).
+**Covered by:** TC-PROD-012 (section 4, SPDX upload with credentials).
 
 ---
 
