@@ -933,3 +933,143 @@ Short matrix for **SBOM (SPDX / CycloneDX)** vs **Single Repository**, with **PA
 ### TC-MATRIX-006: Single repository + SSH
 
 **Covered by:** TC-REPO-006 (section 2).
+
+
+
+---
+
+## Appendix F: Credential Negative Tests
+
+Negative tests for credential combinations covered by TC-MATRIX-002 through TC-MATRIX-006. The frontend auto-detects credential type: text starting with `-----BEGIN` and containing `-----END` is detected as **SSH key**; all other non-empty text is detected as **PAT**. There is no "unrecognized" state.
+
+### TC-MATRIX-NEG-001: SBOM + Malformed SSH Key (Detected as PAT)
+
+**Objective:** Verify that pasting text intended as an SSH key but not in PEM format (e.g., `not-a-real-key`) is auto-detected as PAT, requiring a username before submission.
+
+| Step | User Action | Expected |
+|------|-------------|----------|
+| 1 | Request Analysis → **SBOM**, valid CVE, upload SPDX or CycloneDX SBOM; **Private repository** ON; paste invalid text (e.g., `not-a-real-key`) | Teal **Personal access token detected** label appears (not SSH); **Username** field becomes visible |
+| 2 | Leave **Username** empty and click Submit | Frontend validation prevents submission — "Username is required for Personal Access Token authentication" |
+| 3 | Fill **Username** and click Submit | Request is accepted, but component analysis fails with registry authentication errors on the product/report page |
+
+---
+
+### TC-MATRIX-NEG-002: SPDX + Unauthorized SSH Key
+
+**Objective:** Verify error handling when an SPDX upload uses a valid-format SSH key that is not authorized for the private registry.
+
+| Step | User Action | Expected |
+|------|-------------|----------|
+| 1 | Request Analysis → **SBOM**, valid CVE, upload SPDX referencing private `pkg:oci/...` images; **Private repository** ON; paste a valid PEM **SSH private key** that is not authorized for the registry | Purple **SSH key detected**; **Username** hidden |
+| 2 | Submit | `POST /api/v1/products/upload-spdx` returns **200** (request accepted), but component analysis fails with registry authentication errors visible on the product page |
+
+---
+
+### TC-MATRIX-NEG-003: SBOM + PAT Without Username
+
+**Objective:** Verify that submitting an SBOM (SPDX or CycloneDX) with a PAT but no username is rejected by frontend validation.
+
+| Step | User Action | Expected |
+|------|-------------|----------|
+| 1 | Request Analysis → **SBOM**, valid CVE, upload SPDX or CycloneDX JSON; **Private repository** ON; paste **PAT** | Teal **Personal access token detected**; **Username** field appears |
+| 2 | Leave **Username** field empty and click Submit | Frontend validation prevents submission — "Username is required for Personal Access Token authentication" |
+
+---
+
+### TC-MATRIX-NEG-004: CycloneDX + PAT With Wrong Username
+
+**Objective:** Verify error handling when CycloneDX upload uses a valid PAT but incorrect username.
+
+| Step | User Action | Expected |
+|------|-------------|----------|
+| 1 | Request Analysis → **SBOM**, CVE, upload CycloneDX JSON; **Private repository** ON; paste valid **PAT**; enter incorrect **Username** (e.g., `wrong-user-12345`) | Teal **Personal access token detected** |
+| 2 | Submit | `POST /api/v1/products/upload-cyclonedx` returns **200** (request accepted), but component analysis fails with registry authentication errors visible on the report page |
+
+---
+
+### TC-MATRIX-NEG-005: CycloneDX + Invalid/Expired PAT
+
+**Objective:** Verify error handling when CycloneDX upload uses an invalid or expired PAT.
+
+| Step | User Action | Expected |
+|------|-------------|----------|
+| 1 | Request Analysis → **SBOM**, CVE, upload CycloneDX JSON; **Private repository** ON; paste an expired or invalid **PAT** (e.g., `ghp_invalidtoken123`); fill **Username** | Teal **Personal access token detected** |
+| 2 | Submit | `POST /api/v1/products/upload-cyclonedx` returns **200** (request accepted), but component analysis fails with registry authentication errors visible on the report page |
+
+---
+
+### TC-MATRIX-NEG-006: CycloneDX + Unauthorized SSH Key
+
+**Objective:** Verify error handling when a CycloneDX upload uses a valid-format SSH key that is not authorized for the private registry.
+
+| Step | User Action | Expected |
+|------|-------------|----------|
+| 1 | Request Analysis → **SBOM**, CVE, upload CycloneDX JSON; **Private repository** ON; paste a valid PEM **SSH private key** not authorized for the registry | Purple **SSH key detected**; **Username** hidden |
+| 2 | Submit | `POST /api/v1/products/upload-cyclonedx` returns **200** (request accepted), but component analysis fails with registry authentication errors visible on the report page |
+
+---
+
+### TC-MATRIX-NEG-007: Private Repository Toggle ON Without Credentials
+
+**Objective:** Verify that enabling the private repository toggle without providing any credentials is rejected (applies to both SBOM and Single Repository modes).
+
+| Step | User Action | Expected |
+|------|-------------|----------|
+| 1 | Request Analysis → **SBOM** or **Single Repository**, fill all required fields; **Private repository** ON; leave **Authentication secret** empty | No credential type label shown |
+| 2 | Click Submit | Frontend validation prevents submission — "Required" error on the Authentication secret field |
+
+---
+
+### TC-MATRIX-NEG-008: Single Repository + PAT Without Username
+
+**Objective:** Verify that submitting a private single repository analysis with a PAT but no username is rejected.
+
+| Step | User Action | Expected |
+|------|-------------|----------|
+| 1 | Request Analysis → **Single Repository**, valid CVE, private repo URL, valid commit ID; **Private repository** ON; paste **PAT** | Teal **Personal access token detected**; **Username** field appears |
+| 2 | Leave **Username** empty and click Submit | Frontend validation prevents submission — "Username is required for Personal Access Token authentication" |
+
+---
+
+### TC-MATRIX-NEG-009: Single Repository + PAT With Wrong Username
+
+**Objective:** Verify error handling when a single repository analysis uses a valid PAT but incorrect username.
+
+| Step | User Action | Expected |
+|------|-------------|----------|
+| 1 | Request Analysis → **Single Repository**, valid CVE, private repo URL, valid commit ID; **Private repository** ON; paste valid **PAT**; enter incorrect **Username** (e.g., `wrong-user-12345`) | Teal **Personal access token detected** |
+| 2 | Submit | `POST /api/v1/reports/new` returns **202 Accepted**, but analysis fails with repository authentication errors visible on the report page |
+
+---
+
+### TC-MATRIX-NEG-010: Single Repository + Invalid/Expired PAT
+
+**Objective:** Verify error handling when a single repository analysis uses an invalid or expired PAT.
+
+| Step | User Action | Expected |
+|------|-------------|----------|
+| 1 | Request Analysis → **Single Repository**, valid CVE, private repo URL, valid commit ID; **Private repository** ON; paste invalid **PAT** (e.g., `ghp_invalidtoken123`); fill **Username** | Teal **Personal access token detected** |
+| 2 | Submit | `POST /api/v1/reports/new` returns **202 Accepted**, but analysis fails with repository authentication errors visible on the report page |
+
+---
+
+### TC-MATRIX-NEG-011: Single Repository + Malformed SSH Key (Detected as PAT)
+
+**Objective:** Verify that pasting text intended as an SSH key but not in PEM format is auto-detected as PAT in Single Repository mode.
+
+| Step | User Action | Expected |
+|------|-------------|----------|
+| 1 | Request Analysis → **Single Repository**, valid CVE, private repo URL, valid commit ID; **Private repository** ON; paste invalid text (e.g., `not-a-real-key`) | Teal **Personal access token detected** label appears (not SSH); **Username** field becomes visible |
+| 2 | Leave **Username** empty and click Submit | Frontend validation prevents submission — "Username is required for Personal Access Token authentication" |
+| 3 | Fill **Username** and click Submit | `POST /api/v1/reports/new` returns **202 Accepted**, but analysis fails with repository authentication errors visible on the report page |
+
+---
+
+### TC-MATRIX-NEG-012: Single Repository + Unauthorized SSH Key
+
+**Objective:** Verify error handling when a single repository analysis uses a valid-format SSH key that is not authorized for the repository.
+
+| Step | User Action | Expected |
+|------|-------------|----------|
+| 1 | Request Analysis → **Single Repository**, valid CVE, private repo URL, valid commit ID; **Private repository** ON; paste a valid PEM **SSH private key** not authorized for the repository | Purple **SSH key detected**; **Username** hidden |
+| 2 | Submit | `POST /api/v1/reports/new` returns **202 Accepted**, but analysis fails with repository authentication errors visible on the report page |
