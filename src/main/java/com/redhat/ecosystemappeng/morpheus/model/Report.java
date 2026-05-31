@@ -51,6 +51,9 @@ public record Report(
     @Schema(description = "RPM NVR hyphenated triple from target_package when present")
     String rpmPackage,
     @Schema(description = "RPM architecture from target_package.arch when present")
-    String rpmArchitecture) {
+    String rpmArchitecture,
+    @Schema(description = "True when Exhort CVE dependency triage failed for this report but analysis was still submitted")
+    boolean componentDependencyTriageFailed) {
 
+  public static final String COMPONENT_DEPENDENCY_TRIAGE_FAILED_FIELD = "componentDependencyTriageFailed";
 }

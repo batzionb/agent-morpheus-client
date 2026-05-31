@@ -16,7 +16,9 @@ package com.redhat.ecosystemappeng.morpheus.service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -30,8 +32,62 @@ import jakarta.inject.Inject;
 @ApplicationScoped
 public class CycloneDxParsingService {
 
+  private static final String SYFT_MAIN_MODULE_PROP = "syft:metadata:mainModule";
+
   @Inject
   ObjectMapper objectMapper;
+
+  /**
+   * Normalizes a PURL key from Exhort {@code status.warnings} for comparison with CycloneDX component PURLs
+   * (strips {@code ?} query suffix).
+   */
+  public static String basePurlForExhortWarningMatch(String purl) {
+    if (Objects.isNull(purl)) {
+      return "";
+    }
+    int q = purl.indexOf('?');
+    return q >= 0 ? purl.substring(0, q) : purl;
+  }
+
+  /**
+   * Collects base PURLs for components that Syft marked as the BOM main module (name matches
+   * {@code syft:metadata:mainModule}).
+   */
+  public Set<String> collectSyftMainModuleBasePurls(JsonNode cycloneDxRoot) {
+    Set<String> bases = new HashSet<>();
+    JsonNode components = cycloneDxRoot.get("components");
+    if (components == null || !components.isArray()) {
+      return bases;
+    }
+    for (JsonNode comp : components) {
+      if (!comp.isObject()) {
+        continue;
+      }
+      JsonNode nameNode = comp.get("name");
+      JsonNode purlNode = comp.get("purl");
+      if (nameNode == null || !nameNode.isTextual() || purlNode == null || !purlNode.isTextual()) {
+        continue;
+      }
+      String name = nameNode.asText();
+      JsonNode props = comp.get("properties");
+      if (props == null || !props.isArray()) {
+        continue;
+      }
+      for (JsonNode p : props) {
+        if (!p.isObject()) {
+          continue;
+        }
+        JsonNode pn = p.get("name");
+        JsonNode pv = p.get("value");
+        if (pn != null && pn.isTextual() && SYFT_MAIN_MODULE_PROP.equals(pn.asText())
+            && pv != null && pv.isTextual() && name.equals(pv.asText())) {
+          bases.add(basePurlForExhortWarningMatch(purlNode.asText()));
+          break;
+        }
+      }
+    }
+    return bases;
+  }
 
   /**
    * Parses and validates CycloneDX JSON file from InputStream

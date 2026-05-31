@@ -12,7 +12,7 @@ export type { BatchType } from './models/BatchType';
 export type { CredentialData } from './models/CredentialData';
 export type { ErrorResponse } from './models/ErrorResponse';
 export type { Eval } from './models/Eval';
-export type { FailedComponent } from './models/FailedComponent';
+export type { ExcludedComponent } from './models/ExcludedComponent';
 export type { Feedback } from './models/Feedback';
 export type { Image } from './models/Image';
 export type { InlineCredential } from './models/InlineCredential';

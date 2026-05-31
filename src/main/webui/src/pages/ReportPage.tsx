@@ -118,6 +118,18 @@ const ReportPage: React.FC = () => {
           </GridItem>
         </Grid>
       </PageSection>
+      {data.data.dependencyTriageUnavailable === true ? (
+        <PageSection>
+          <Alert
+            variant={AlertVariant.warning}
+            title="Dependency triage unavailable"
+          >
+            The automated pre-check for vulnerable packages is offline. Full
+            analysis is being performed on all components to ensure complete
+            coverage.
+          </Alert>
+        </PageSection>
+      ) : null}
       <PageSection>
         <Grid hasGutter>
           <GridItem span={6}>

@@ -13,6 +13,13 @@
 import { useMemo } from "react";
 import { Link } from "react-router";
 import {
+  Flex,
+  FlexItem,
+  Tooltip,
+  Button,
+} from "@patternfly/react-core";
+import { ExclamationTriangleIcon } from "@patternfly/react-icons";
+import {
   Table,
   TableText,
   Thead,
@@ -91,6 +98,43 @@ function isSortableRepoColumn(
   return col.sortable === true;
 }
 
+const DEPENDENCY_TRIAGE_UNAVAILABLE_TOOLTIP =
+  "Dependency triage unavailable. Full analysis performed to ensure complete coverage.";
+
+interface RepositoryTableCellProps {
+  gitRepo: string;
+  componentDependencyTriageFailed?: boolean;
+}
+
+const RepositoryTableCell: React.FC<RepositoryTableCellProps> = ({
+  gitRepo,
+  componentDependencyTriageFailed,
+}) => (
+  <TableText wrapModifier="truncate">
+    <Flex
+      gap={{ default: "gapSm" as const }}
+      alignItems={{ default: "alignItemsCenter" as const }}
+      flexWrap={{ default: "nowrap" }}
+    >
+      {componentDependencyTriageFailed === true ? (
+        <FlexItem>
+          <Tooltip content={DEPENDENCY_TRIAGE_UNAVAILABLE_TOOLTIP}>
+            <Button
+              variant="plain"
+              className="pf-v6-u-p-0"
+              icon={<ExclamationTriangleIcon />}
+              aria-label={DEPENDENCY_TRIAGE_UNAVAILABLE_TOOLTIP}
+            />
+          </Tooltip>
+        </FlexItem>
+      ) : null}
+      <FlexItem style={{ minWidth: 0 }} grow={{ default: "grow" }}>
+        {gitRepo}
+      </FlexItem>
+    </Flex>
+  </TableText>
+);
+
 export interface RepositoryReportsTableContentProps {
   reports: Report[] | null;
   loading: boolean;
@@ -154,7 +198,10 @@ const RepositoryReportsTableContent: React.FC<
         );
       case "gitRepo":
         return (
-          <TableText wrapModifier="truncate">{report.gitRepo || ""}</TableText>
+          <RepositoryTableCell
+            gitRepo={report.gitRepo || ""}
+            componentDependencyTriageFailed={report.componentDependencyTriageFailed}
+          />
         );
       case "commitId":
         return <TableText wrapModifier="truncate">{report.ref ?? ""}</TableText>;

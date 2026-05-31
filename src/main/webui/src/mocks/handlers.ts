@@ -112,7 +112,7 @@ const generateMockProductSummary = (
       submittedCount: numReports,
       completedAt: state === "completed" ? now : undefined,
       metadata: spdxBlocksNavigation ? { spdx_id: spdxRaw! } : {},
-      submissionFailures: [],
+      excludedComponents: [],
     },
     summary: {
       productState,
@@ -205,7 +205,7 @@ const mockProducts: ProductSummary[] = [
       submittedCount: 60,
       completedAt: new Date().toISOString(),
       metadata: {},
-      submissionFailures: [],
+      excludedComponents: [],
     },
     summary: {
       productState: "completed",
@@ -256,7 +256,7 @@ const mockProducts: ProductSummary[] = [
       submittedCount: 15,
       completedAt: new Date().toISOString(),
       metadata: {},
-      submissionFailures: [],
+      excludedComponents: [],
     },
     summary: {
       productState: "completed",

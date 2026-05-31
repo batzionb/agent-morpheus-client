@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { FailedComponent } from '../models/FailedComponent';
+import type { ExcludedComponent } from '../models/ExcludedComponent';
 import type { MarkReportFailedRequest } from '../models/MarkReportFailedRequest';
 import type { NewRpmReportRequest } from '../models/NewRpmReportRequest';
 import type { ProductSummary } from '../models/ProductSummary';
@@ -396,13 +396,17 @@ export class ReportEndpointService {
              */
             metadata: Record<string, string>;
             /**
-             * List of submitted components failed to be processed for scanning
-             */
-            submissionFailures: Array<FailedComponent>;
-            /**
              * Timestamp of product scan request completion
              */
             completedAt?: string;
+            /**
+             * Components excluded from scanning (errors or dependency gate)
+             */
+            excludedComponents: Array<ExcludedComponent>;
+            /**
+             * When true, whole-product Exhort health probe failed and per-component dependency triage was skipped
+             */
+            dependencyTriageUnavailable?: boolean;
             /**
              * CVE ID associated with this product
              */

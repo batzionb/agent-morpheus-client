@@ -14,12 +14,13 @@
 
 package com.redhat.ecosystemappeng.morpheus.model;
 
-import org.eclipse.microprofile.openapi.annotations.media.Schema;
-import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
-import io.quarkus.runtime.annotations.RegisterForReflection;
-
 import java.util.List;
 import java.util.Map;
+
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+
+import io.quarkus.runtime.annotations.RegisterForReflection;
 
 @Schema(name = "Product", description = "Product metadata")
 @RegisterForReflection
@@ -36,14 +37,12 @@ public record Product(
     int submittedCount,
     @Schema(required = true, description = "Product user provided metadata")
     Map<String, String> metadata,
-    @Schema(type = SchemaType.ARRAY, implementation = FailedComponent.class, required = true, description = "List of submitted components failed to be processed for scanning")
-    List<FailedComponent> submissionFailures,
     @Schema(description = "Timestamp of product scan request completion")
     String completedAt,
+    @Schema(type = SchemaType.ARRAY, implementation = ExcludedComponent.class, required = true, description = "Components excluded from scanning (errors or dependency gate)")
+    List<ExcludedComponent> excludedComponents,
+    @Schema(description = "When true, whole-product Exhort health probe failed and per-component dependency triage was skipped")
+    boolean dependencyTriageUnavailable,
     @Schema(required = true, description = "CVE ID associated with this product")
     String cveId
-) {
-    public Product(String id, String name, String version, String submittedAt, int submittedCount, Map<String, String> metadata, List<FailedComponent> submissionFailures, String cveId) {
-        this(id, name, version, submittedAt, submittedCount, metadata, submissionFailures, null, cveId);
-    }
-} 
+) {}

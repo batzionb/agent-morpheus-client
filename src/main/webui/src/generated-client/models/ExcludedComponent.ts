@@ -3,9 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
- * Metadata of submitted components failed to be processed for scanning
+ * Component excluded from scanning for a product
  */
-export type FailedComponent = {
+export type ExcludedComponent = {
     /**
      * Component name
      */
@@ -15,12 +15,16 @@ export type FailedComponent = {
      */
     version: string;
     /**
-     * Component image
+     * Component image or purl reference
      */
     image: string;
     /**
-     * Error message
+     * Reason category (e.g. error, dependency_not_present)
      */
-    error: string;
+    exclusionType: string;
+    /**
+     * Optional error detail when exclusionType is error
+     */
+    error?: string;
 };
 

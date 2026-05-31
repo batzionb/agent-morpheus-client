@@ -193,14 +193,14 @@
           }
         }
       },
-      "FailedComponent": {
-        "description": "Metadata of submitted components failed to be processed for scanning",
+      "ExcludedComponent": {
+        "description": "Component excluded from scanning for a product",
         "type": "object",
         "required": [
           "name",
           "version",
           "image",
-          "error"
+          "exclusionType"
         ],
         "properties": {
           "name": {
@@ -213,11 +213,15 @@
           },
           "image": {
             "type": "string",
-            "description": "Component image"
+            "description": "Component image or purl reference"
+          },
+          "exclusionType": {
+            "type": "string",
+            "description": "Reason category (e.g. error, dependency_not_present)"
           },
           "error": {
             "type": "string",
-            "description": "Error message"
+            "description": "Optional error detail when exclusionType is error"
           }
         }
       },
@@ -540,7 +544,7 @@
           "submittedAt",
           "submittedCount",
           "metadata",
-          "submissionFailures",
+          "excludedComponents",
           "cveId"
         ],
         "properties": {
@@ -572,16 +576,20 @@
             },
             "description": "Product user provided metadata"
           },
-          "submissionFailures": {
-            "description": "List of submitted components failed to be processed for scanning",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FailedComponent"
-            }
-          },
           "completedAt": {
             "type": "string",
             "description": "Timestamp of product scan request completion"
+          },
+          "excludedComponents": {
+            "description": "Components excluded from scanning (errors or dependency gate)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExcludedComponent"
+            }
+          },
+          "dependencyTriageUnavailable": {
+            "type": "boolean",
+            "description": "When true, whole-product Exhort health probe failed and per-component dependency triage was skipped"
           },
           "cveId": {
             "type": "string",
@@ -642,7 +650,7 @@
               "submittedAt",
               "submittedCount",
               "metadata",
-              "submissionFailures",
+              "excludedComponents",
               "cveId"
             ],
             "properties": {
@@ -674,16 +682,20 @@
                 },
                 "description": "Product user provided metadata"
               },
-              "submissionFailures": {
-                "description": "List of submitted components failed to be processed for scanning",
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/FailedComponent"
-                }
-              },
               "completedAt": {
                 "type": "string",
                 "description": "Timestamp of product scan request completion"
+              },
+              "excludedComponents": {
+                "description": "Components excluded from scanning (errors or dependency gate)",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ExcludedComponent"
+                }
+              },
+              "dependencyTriageUnavailable": {
+                "type": "boolean",
+                "description": "When true, whole-product Exhort health probe failed and per-component dependency triage was skipped"
               },
               "cveId": {
                 "type": "string",
@@ -804,6 +816,10 @@
           "rpmArchitecture": {
             "type": "string",
             "description": "RPM architecture from target_package.arch when present"
+          },
+          "componentDependencyTriageFailed": {
+            "type": "boolean",
+            "description": "True when Exhort CVE dependency triage failed for this report but analysis was still submitted"
           }
         }
       },
@@ -1276,6 +1292,10 @@
         "description": "Please enter your JWT Token without Bearer",
         "scheme": "bearer",
         "bearerFormat": "jwt"
+      },
+      "SecurityScheme": {
+        "type": "openIdConnect",
+        "description": "Authentication"
       }
     }
   },
@@ -3492,7 +3512,7 @@
                         "submittedAt",
                         "submittedCount",
                         "metadata",
-                        "submissionFailures",
+                        "excludedComponents",
                         "cveId"
                       ],
                       "properties": {
@@ -3524,16 +3544,20 @@
                           },
                           "description": "Product user provided metadata"
                         },
-                        "submissionFailures": {
-                          "description": "List of submitted components failed to be processed for scanning",
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/FailedComponent"
-                          }
-                        },
                         "completedAt": {
                           "type": "string",
                           "description": "Timestamp of product scan request completion"
+                        },
+                        "excludedComponents": {
+                          "description": "Components excluded from scanning (errors or dependency gate)",
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ExcludedComponent"
+                          }
+                        },
+                        "dependencyTriageUnavailable": {
+                          "type": "boolean",
+                          "description": "When true, whole-product Exhort health probe failed and per-component dependency triage was skipped"
                         },
                         "cveId": {
                           "type": "string",

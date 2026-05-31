@@ -28,7 +28,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.redhat.ecosystemappeng.morpheus.exception.SbomValidationException;
 import com.redhat.ecosystemappeng.morpheus.exception.ValidationException;
-import com.redhat.ecosystemappeng.morpheus.model.FailedComponent;
+import com.redhat.ecosystemappeng.morpheus.model.ExcludedComponent;
 import com.redhat.ecosystemappeng.morpheus.model.ParsedCycloneDx;
 import com.redhat.ecosystemappeng.morpheus.model.Product;
 import com.redhat.ecosystemappeng.morpheus.model.ReportData;
@@ -53,6 +53,7 @@ public class SbomReportService {
   private ComponentProcessingService componentProcessingService;
   private CredentialProcessingService credentialProcessingService;
   private ObjectMapper objectMapper;
+  private ExhortHealthProbe exhortHealthProbe;
 
   @Inject
   public void setCycloneDxParsingService(CycloneDxParsingService cycloneDxParsingService) {
@@ -94,6 +95,10 @@ public class SbomReportService {
     this.objectMapper = objectMapper;
   }
 
+  @Inject
+  public void setExhortHealthProbe(ExhortHealthProbe exhortHealthProbe) {
+    this.exhortHealthProbe = exhortHealthProbe;
+  }
 
   /**
    * Generates a product ID from SBOM name and version.
@@ -236,25 +241,38 @@ public class SbomReportService {
     }
 
     int totalComponentCount = parsed.components().size() + parsed.unsupportedComponents().size();
-    Product product = this.createProduct(cveId, productInfo.name(), productInfo.version(), totalComponentCount, metadata);
+    boolean dependencyTriageUnavailable = !exhortHealthProbe.probe();
+    Product product =
+        this.createProduct(cveId, productInfo.name(), productInfo.version(), totalComponentCount, metadata, dependencyTriageUnavailable);
 
     for (SpdxParsingService.UnsupportedComponentInfo unsupported : parsed.unsupportedComponents()) {      
       String errorMessage = String.format(
           "Expects a container image purl with format pkg:oci/name@sha256:hash?repository_url=...&tag=...");
       String imageForDisplay = unsupported.purl() != null ? unsupported.purl() : "";
-      productRepository.addSubmissionFailure(product.id(), new FailedComponent(
-          unsupported.name(), unsupported.version(), imageForDisplay, errorMessage));
+      productRepository.addExcludedComponent(
+          product.id(),
+          new ExcludedComponent(
+              unsupported.name(),
+              unsupported.version(),
+              imageForDisplay,
+              "error",
+              errorMessage));
     }
 
     // Start component processing (chunks run in parallel on executor)
-    processSpdxComponents(product.id(), parsed, cveId, credentialId);
+    processSpdxComponents(product.id(), parsed, cveId, credentialId, dependencyTriageUnavailable);
 
     LOGGER.infof("Created product %s, started component processing", product.id());
     
     return product.id();
   }
 
-  private void processSpdxComponents(String productId, SpdxParsingService.ParsedSpdx parsed, String vulnerabilityId, String credentialId) {
+  private void processSpdxComponents(
+      String productId,
+      SpdxParsingService.ParsedSpdx parsed,
+      String vulnerabilityId,
+      String credentialId,
+      boolean dependencyTriageUnavailable) {
     try {
       LOGGER.infof("Processing %d components for product: %s", parsed.components().size(), productId);
       Map<String, String> componentMetadata = new HashMap<>();
@@ -268,16 +286,33 @@ public class SbomReportService {
           productId,
           componentMetadata,
           vulnerabilityId,
-          credentialId
-      );
+          credentialId,
+          dependencyTriageUnavailable);
     } catch (Exception e) {
       LOGGER.errorf(e, "Error during component processing for product: %s", productId);
     }
   }
 
-  private Product createProduct(String cveId, String sbomName, String sbomVersion, int componentCount, Map<String, String> metadata) {
+  private Product createProduct(
+      String cveId,
+      String sbomName,
+      String sbomVersion,
+      int componentCount,
+      Map<String, String> metadata,
+      boolean dependencyTriageUnavailable) {
     String productId = generateProductId(sbomName, sbomVersion);
-    Product product = newProductDocument(cveId, productId, sbomName, sbomVersion, componentCount, metadata);
+    Product product =
+        new Product(
+            productId,
+            sbomName,
+            Objects.nonNull(sbomVersion) ? sbomVersion : "",
+            Instant.now().toString(),
+            componentCount,
+            metadata,
+            null,
+            Collections.emptyList(),
+            dependencyTriageUnavailable,
+            cveId);
     productRepository.save(product, userService.getUserName());
     return product;
   }
@@ -296,7 +331,9 @@ public class SbomReportService {
         Instant.now().toString(),
         componentCount,
         metadata,
+        null,
         Collections.emptyList(),
+        false,
         cveId);
   }
 }

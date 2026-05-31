@@ -54,10 +54,11 @@ public final class RestApiTestFixture {
      * successful upload (before assertions that assume a settled product) so tests do not exit
      * while background work is still running.
      * <p>
-     * Waits until {@code reports_for_product + submission_failures == submittedCount} on the product.
+     * Waits until {@code reports_for_product + excluded_components == submittedCount} on the product.
      */
     public static void awaitSpdxProductProcessingComplete(String productId) {
-        long deadline = System.currentTimeMillis() + Duration.ofMinutes(2).toMillis();
+        // SPDX + Syft + Exhort for many images can exceed a few minutes under load or slow registry.
+        long deadline = System.currentTimeMillis() + Duration.ofMinutes(5).toMillis();
         while (System.currentTimeMillis() < deadline) {
             var product = RestAssured.given()
                 .when()
@@ -67,8 +68,8 @@ public final class RestApiTestFixture {
                 .extract();
             int submittedCount = product.path("data.submittedCount");
             @SuppressWarnings("unchecked")
-            List<?> failures = product.path("data.submissionFailures");
-            int failureCount = failures == null ? 0 : failures.size();
+            List<?> excluded = product.path("data.excludedComponents");
+            int excludedCount = excluded == null ? 0 : excluded.size();
             String totalElements = RestAssured.given()
                 .queryParam("productId", productId)
                 .queryParam("pageSize", 1)
@@ -79,7 +80,7 @@ public final class RestApiTestFixture {
                 .extract()
                 .header("X-Total-Elements");
             long reportTotal = totalElements == null ? 0L : Long.parseLong(totalElements);
-            if (reportTotal + failureCount == submittedCount) {
+            if (reportTotal + excludedCount == submittedCount) {
                 return;
             }
             try {

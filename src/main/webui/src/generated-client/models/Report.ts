@@ -63,5 +63,9 @@ export type Report = {
      * RPM architecture from target_package.arch when present
      */
     rpmArchitecture?: string;
+    /**
+     * True when Exhort CVE dependency triage failed for this report but analysis was still submitted
+     */
+    componentDependencyTriageFailed?: boolean;
 };
 

@@ -33,20 +33,20 @@ public class UploadSpdxRestTest {
     /** {@code gitops-1.19.json}: twelve {@code PACKAGE_OF} child packages under the product package. */
     private static final int GITOPS_119_EXPECTED_SUBMITTED_COUNT = 12;
 
-    /** Exactly one component ({@code gitops-operator-bundle-1-19}) records a submission failure (e.g. Syft/SBOM validation). */
-    private static final int GITOPS_119_EXPECTED_SUBMISSION_FAILURE_COUNT = 1;
+    /** Exactly one component ({@code gitops-operator-bundle-1-19}) is excluded as {@code error} (e.g. Syft/SBOM validation). */
+    private static final int GITOPS_119_EXPECTED_EXCLUDED_ERROR_COUNT = 1;
 
     /**
      * Successful Morpheus-backed reports after async processing:
      * {@link #GITOPS_119_EXPECTED_SUBMITTED_COUNT} submitted =
-     * {@link #GITOPS_119_EXPECTED_REPORT_COUNT} reports + {@link #GITOPS_119_EXPECTED_SUBMISSION_FAILURE_COUNT} failure(s).
+     * {@link #GITOPS_119_EXPECTED_REPORT_COUNT} reports + {@link #GITOPS_119_EXPECTED_EXCLUDED_ERROR_COUNT} excluded error(s).
      */
     private static final int GITOPS_119_EXPECTED_REPORT_COUNT =
-        GITOPS_119_EXPECTED_SUBMITTED_COUNT - GITOPS_119_EXPECTED_SUBMISSION_FAILURE_COUNT;
+        GITOPS_119_EXPECTED_SUBMITTED_COUNT - GITOPS_119_EXPECTED_EXCLUDED_ERROR_COUNT;
 
     /**
      * Valid SPDX upload for {@code gitops-1.19.json}: expects product CPE, 12 submitted components,
-     * 11 persisted reports, and exactly one entry in {@code submissionFailures} (operator bundle).
+     * 11 persisted reports, and exactly one {@code excludedComponents} entry with {@code exclusionType} {@code error} (operator bundle).
      */
     @Test
     void testUpload_ValidFileAndVulnerabilityId() {
@@ -76,8 +76,9 @@ public class UploadSpdxRestTest {
             .contentType(ContentType.JSON)
             .body("data.metadata.cpe", equalTo("cpe:/a:redhat:openshift_gitops:1.19::el8"))
             .body("data.submittedCount", equalTo(GITOPS_119_EXPECTED_SUBMITTED_COUNT))
-            .body("data.submissionFailures", hasSize(GITOPS_119_EXPECTED_SUBMISSION_FAILURE_COUNT))
-            .body("data.submissionFailures[0].name", equalTo("gitops-operator-bundle-1-19"));
+            .body("data.excludedComponents", hasSize(GITOPS_119_EXPECTED_EXCLUDED_ERROR_COUNT))
+            .body("data.excludedComponents[0].name", equalTo("gitops-operator-bundle-1-19"))
+            .body("data.excludedComponents[0].exclusionType", equalTo("error"));
 
         RestAssured.given()
             .queryParam("productId", productId)
@@ -90,7 +91,7 @@ public class UploadSpdxRestTest {
     }
 
     @Test
-    void testUpload_SpdxWithUnsupportedComponent_RecordsInSubmissionFailures() {
+    void testUpload_SpdxWithUnsupportedComponent_RecordsExcludedComponent() {
         File sbomFile = new File(SPDX_WITH_UNSUPPORTED);
 
         String productId = RestAssured.given()
@@ -116,11 +117,12 @@ public class UploadSpdxRestTest {
             .statusCode(200)
             .contentType(ContentType.JSON)
             .body("data.submittedCount", equalTo(2))
-            .body("data.submissionFailures", notNullValue())
-            .body("data.submissionFailures", hasSize(1))
-            .body("data.submissionFailures[0].name", equalTo("maven-lib"))
-            .body("data.submissionFailures[0].version", equalTo("2.0"))
-            .body("data.submissionFailures[0].error", containsString("Expects a container image purl with format pkg:oci/name@sha256:hash?repository_url=...&tag=..."));
+            .body("data.excludedComponents", notNullValue())
+            .body("data.excludedComponents", hasSize(1))
+            .body("data.excludedComponents[0].name", equalTo("maven-lib"))
+            .body("data.excludedComponents[0].version", equalTo("2.0"))
+            .body("data.excludedComponents[0].exclusionType", equalTo("error"))
+            .body("data.excludedComponents[0].error", containsString("Expects a container image purl with format pkg:oci/name@sha256:hash?repository_url=...&tag=..."));
     }
 
     @Test

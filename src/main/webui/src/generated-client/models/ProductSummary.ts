@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { FailedComponent } from './FailedComponent';
+import type { ExcludedComponent } from './ExcludedComponent';
 /**
  * Product metadata and reports data
  */
@@ -36,13 +36,17 @@ export type ProductSummary = {
          */
         metadata: Record<string, string>;
         /**
-         * List of submitted components failed to be processed for scanning
-         */
-        submissionFailures: Array<FailedComponent>;
-        /**
          * Timestamp of product scan request completion
          */
         completedAt?: string;
+        /**
+         * Components excluded from scanning (errors or dependency gate)
+         */
+        excludedComponents: Array<ExcludedComponent>;
+        /**
+         * When true, whole-product Exhort health probe failed and per-component dependency triage was skipped
+         */
+        dependencyTriageUnavailable?: boolean;
         /**
          * CVE ID associated with this product
          */

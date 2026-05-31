@@ -116,9 +116,7 @@ public class DatabaseInit {
               .append("submitted_count", doc.getInteger("submittedCount"))
               .append("cve_id", doc.getString("cveId"))
               .append("metadata", metadataMap)
-              .append("submission_failures", doc.get("submissionFailures", List.class) != null ? 
-                  doc.get("submissionFailures", List.class) : 
-                  new ArrayList<>())
+              .append("excluded_components", excludedComponentsJsonToBson(doc))
               .append("completed_at", doc.getString("completedAt"));
           docs.add(dbDoc);
         } catch (Exception e) {
@@ -130,6 +128,30 @@ public class DatabaseInit {
     } catch (IOException | URISyntaxException e) {
       LOGGER.error("Unable to load products into database", e);
     }
+  }
+
+  private static List<Document> excludedComponentsJsonToBson(Document doc) {
+    List<Document> out = new ArrayList<>();
+    List<Document> items = doc.getList("excludedComponents", Document.class);
+    if (items == null) {
+      return out;
+    }
+    for (Document item : items) {
+      if (item == null) {
+        continue;
+      }
+      Document d = new Document()
+          .append("name", item.getString("name"))
+          .append("version", item.getString("version"))
+          .append("image", item.getString("image"))
+          .append("exclusion_type", item.getString("exclusionType"));
+      String err = item.getString("error");
+      if (err != null) {
+        d.append("error", err);
+      }
+      out.add(d);
+    }
+    return out;
   }
 
   private void loadReports() {

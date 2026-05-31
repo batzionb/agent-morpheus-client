@@ -45,7 +45,7 @@ import com.mongodb.client.model.Indexes;
 import com.mongodb.client.model.Sorts;
 import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.Updates;
-import com.redhat.ecosystemappeng.morpheus.model.FailedComponent;
+import com.redhat.ecosystemappeng.morpheus.model.ExcludedComponent;
 import com.redhat.ecosystemappeng.morpheus.model.Justification;
 import com.redhat.ecosystemappeng.morpheus.model.PaginatedResult;
 import com.redhat.ecosystemappeng.morpheus.model.Pagination;
@@ -243,6 +243,8 @@ public class ReportRepositoryService {
     }
 
     String submittedAt = Objects.nonNull(metadata) ? metadata.get(SUBMITTED_AT) : null;
+    boolean componentDependencyTriageFailed =
+        Boolean.TRUE.equals(doc.getBoolean(Report.COMPONENT_DEPENDENCY_TRIAGE_FAILED_FIELD));
     String scanId = scan.getString(RepositoryConstants.SCAN_ID);
     return new Report(id, scanId,
         scan.getString("started_at"),
@@ -256,7 +258,8 @@ public class ReportRepositoryService {
         ref,
         submittedAt,
         rpmPackageStr,
-        rpmArchStr);
+        rpmArchStr,
+        componentDependencyTriageFailed);
   }
 
   public String getStatus(Document doc, Map<String, String> metadata) {
@@ -454,7 +457,7 @@ public class ReportRepositoryService {
   public ProductReportsSummary getProductSummaryData(Product product) {
     Objects.requireNonNull(product, "product");
     String productId = product.id();
-    List<FailedComponent> submissionFailures = product.submissionFailures();
+    List<ExcludedComponent> excludedComponents = product.excludedComponents();
     int submittedCount = product.submittedCount();
     Map<String, String> productMetadata = product.metadata();
 
@@ -497,7 +500,7 @@ public class ReportRepositoryService {
       }
     }
 
-    int excludedCount = submissionFailures != null ? submissionFailures.size() : 0;
+    int excludedCount = excludedComponents != null ? excludedComponents.size() : 0;
     if (excludedCount > 0) {
       statusCounts.put("excluded", excludedCount);
     }
