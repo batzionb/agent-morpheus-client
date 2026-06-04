@@ -76,6 +76,62 @@ cd src/main/webui
 npm run dev:standalone
 ```
 
+## User feedback (Argilla)
+
+Report feedback is forwarded to [morpheus-feedback-api](https://github.com/RHEcosystemAppEng/morpheus-feedback-api), which stores submissions in [Argilla](https://argilla.io/). To exercise the feedback card locally, run Argilla, the feedback API, and this application together.
+
+### 1. Start Argilla
+
+```shell
+./scripts/start-argilla.sh
+```
+
+This starts Elasticsearch and the Argilla quickstart container (see [running locally](https://github.com/RHEcosystemAppEng/morpheus-feedback-api#running-locally)).
+
+Open http://localhost:6900/sign-in and sign in with `admin` / `12345678` (API key: `admin.apikey`).
+
+### 2. Start morpheus-feedback-api
+
+In a separate terminal:
+
+```shell
+./scripts/start-feedback-api.sh
+```
+
+The script clones `morpheus-feedback-api` on first run, creates a Python venv, and starts Flask on http://localhost:5001. On the first request it creates the `feedback-ai` dataset in the `admin` workspace.
+
+Override Argilla connection settings with environment variables if needed:
+
+```shell
+export ARGILLA_API_URL=http://localhost:6900
+export ARGILLA_API_KEY=admin.apikey
+export ARGILLA_DATASET=feedback-ai
+export ARGILLA_WORKSPACE=admin
+./scripts/start-feedback-api.sh
+```
+
+### 3. Run ExploitIQ
+
+The dev profile already points the feedback REST client at the local Flask service:
+
+```properties
+%dev.quarkus.rest-client.feedback-api.url=http://localhost:5001
+```
+
+Start the app as usual:
+
+```shell
+./mvnw quarkus:dev
+```
+
+Submit feedback from a completed repository report page. Records appear in the Argilla UI under workspace `admin`, dataset `feedback-ai`.
+
+To stop Argilla without removing data:
+
+```shell
+./scripts/stop-argilla.sh
+```
+
 ## Supplying application data
 
 You can supply the application with data by sending Agent Morpheus output.json files from your local file system to the application using:

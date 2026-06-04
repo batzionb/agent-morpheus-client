@@ -18,6 +18,26 @@ limitations under the License.
 
 For detailed authentication configuration including OpenShift OAuth, Keycloak, and external identity providers (Google, GitHub, Azure AD), see the [Authentication Guide](./authentication.md).
 
+## Feedback API (Argilla)
+
+User feedback on completed reports is forwarded to [morpheus-feedback-api](https://github.com/RHEcosystemAppEng/morpheus-feedback-api), which writes to an Argilla dataset.
+
+```properties
+quarkus.rest-client.feedback-api.url=http://morpheus-feedback-api:5001
+%dev.quarkus.rest-client.feedback-api.url=http://localhost:5001
+```
+
+For local development, see [development.md](./development.md#user-feedback-argilla) for starting Argilla and the feedback API.
+
+The feedback API connects to Argilla with these environment variables (defaults shown):
+
+| Variable | Default (local) | Description |
+|----------|-----------------|-------------|
+| `ARGILLA_API_URL` | `http://localhost:6900` | Argilla server URL |
+| `ARGILLA_API_KEY` | `admin.apikey` | Argilla API key |
+| `ARGILLA_DATASET` | `feedback-ai` | Dataset name for feedback records |
+| `ARGILLA_WORKSPACE` | `admin` | Argilla workspace |
+
 ## External Services (GitHub / Morpheus)
 
 Use the `rest-client` properties for updating the default the github and morpheus RestClient endpoints:

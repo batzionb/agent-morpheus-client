@@ -1,0 +1,38 @@
+# Local Argilla stack for ExploitIQ feedback development.
+# Follows https://github.com/RHEcosystemAppEng/morpheus-feedback-api#running-locally
+#
+# Start:  docker compose -f devservices/argilla/docker-compose.yaml up -d
+# Stop:   docker compose -f devservices/argilla/docker-compose.yaml stop
+# UI:     http://localhost:6900/sign-in  (admin / 12345678, API key: admin.apikey)
+
+services:
+  elasticsearch:
+    container_name: elasticsearch-for-argilla
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.3
+    restart: unless-stopped
+    environment:
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - argilla-net
+
+  quickstart:
+    container_name: quickstart
+    image: argilla/argilla-quickstart:latest
+    restart: unless-stopped
+    environment:
+      ARGILLA_ELASTICSEARCH: http://elasticsearch:9200
+    ports:
+      - "6900:6900"
+    depends_on:
+      - elasticsearch
+    networks:
+      - argilla-net
+
+networks:
+  argilla-net:
+    driver: bridge
